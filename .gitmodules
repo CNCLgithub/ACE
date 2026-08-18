@@ -1,0 +1,3 @@
+[submodule "julia/GenRFS"]
+	path = julia/GenRFS
+	url = git@github.com:CNCLgithub/GenRFS.git
