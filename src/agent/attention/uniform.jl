@@ -4,7 +4,7 @@ export UniformProtocol
 # Uniform Rationing
 ################################################################################
 
-@with_kw struct UniformProtocol <: AttentionProtocol
+@kwdef struct UniformProtocol <: AttentionProtocol
     "Number of rejuvenation moves"
     moves::Int64 = 10
     partition::TracePartition = WMPartition()

@@ -1,3 +1,4 @@
+include("types.jl")
 include("fill.jl")
 include("constants.jl")
 include("datastructures.jl")

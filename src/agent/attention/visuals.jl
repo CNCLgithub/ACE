@@ -134,31 +134,6 @@ function paint_simulation_traverse!(m::MentalModule{TargetDesignation}, stop_wei
     return nothing
 end
 
-function paint_trace_travese!(trace::KMDTrace, stop::Float64,
-                              hue_low = .35, hue_high = 0.0)
-    rg,_ = get_retval(trace)
-    rg = clamp(rg, -1.0, 1.0)
-    rg_scaled = 0.5 * (rg + 1.0)
-    hue = hue_low + rg_scaled * (hue_high - hue_low)
-    fill_color = Colors.HSV(hue * 360, 0.85, 0.9)
-
-    states = get_states(trace)
-    nt = length(states)
-    nt === 0 && return nothing
-    t = nt === 1 ? 1 : binom(nt-1, 1-stop)+1
-    state = states[t]
-    for i = 1:ndynamic(state)
-        x, pos, _ = state.dynamic[i]
-        point = Luxor.Point(pos[1], -pos[2])
-        @layer begin
-            setopacity(1.0)
-            sethue(fill_color)
-            translate(point)
-            Luxor.circle(Luxor.Point(0, 0), 5.0, :fill)
-        end
-    end
-    return nothing
-end
 
 # function render_attention(att::MentalModule{UniformProtocol})
 #     return nothing

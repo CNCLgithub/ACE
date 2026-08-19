@@ -1,7 +1,5 @@
-@kwdef struct WorldModel
-    motion::MotionModel
-    graphics::GraphicsModel
-end
+export WorldModel, WorldState, Object, Disc
+
 
 abstract type Object end
 
@@ -12,7 +10,19 @@ struct Disc <: Object
 end
 
 abstract type MotionModel end
-include("motion.jl")
-
 abstract type GraphicsModel end
+
+@kwdef struct WorldModel
+    motion::MotionModel
+    graphics::GraphicsModel
+end
+
+struct WorldState
+    objects::Vector{Disc}
+end
+
+include("motion.jl")
 include("graphics.jl")
+include("gen.jl")
+include("trace.jl")
+

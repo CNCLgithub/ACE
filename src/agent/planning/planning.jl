@@ -17,5 +17,5 @@
 #                         query::SequentialQuery)
 #     MentalModule(planning, PFChain(inference, query))
 # end
-include("collision.jl")
+include("target_designation.jl")
 include("visuals.jl")

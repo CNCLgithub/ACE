@@ -1,7 +1,6 @@
 export PFProtocol,
     PFChain
 
-using GenParticleFilters
 
 """
     ($TYPEDEF)
@@ -13,7 +12,7 @@ Perception Protocol that implements the adaptive computation interface in a part
 $(TYPEDFIELDS)
 
 """
-@with_kw struct PFProtocol <: InferenceProtocol
+@kwdef struct PFProtocol <: InferenceProtocol
     "Number of particles"
     particles::Int = 1
     "Effective sample size"
@@ -83,7 +82,7 @@ end
 # end
 
 
-# function reinit_chain(chain::APChain, template::InertiaTrace,
+# function reinit_chain(chain::APChain, template::STrace,
 #                       cm = choicemap())
 #     pf = estimator(chain)
 #     q = estimand(chain)

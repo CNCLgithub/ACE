@@ -12,7 +12,7 @@ Protocol for estimating the marginal target probabilities so far.
 $(TYPEDFIELDS)
 
 """
-@with_kw struct TargetDesignation <: PlanningProtocol
+@kwdef struct TargetDesignation <: PlanningProtocol
     ntarget::Int64 = 4
 end
 
@@ -60,7 +60,7 @@ end
 
 include("gen.jl")
 
-function seed_model(p::TargetDesignation, tr::WMTrace)
+function seed_model(p::TargetDesignation, tr::STrace)
     t, _, wm = get_args(tr)
     istate = get_last_state(tr)
     args = (istate, p.ntargets)
@@ -125,7 +125,7 @@ function approximate_td_marginal(p::TargetDesignation, traces::Vector{<:PiTrace}
     exp_pi = mean(expected_reward_td_rfs, traces)
 end
 
-function expected_reward_td_rfs(trace::WMTrace, temp::Float64 = 10.0)
+function expected_reward_td_rfs(trace::STrace, temp::Float64 = 10.0)
     t = first(get_args(trace))
     rfs = extract_rfs_subtrace(trace, t)
     pt = rfs.ptensor
@@ -172,7 +172,7 @@ function expected_reward_td_rfs(trace::WMTrace, temp::Float64 = 10.0)
 end
 
 
-function proxy_delta_pi(m::MentalModule{TargetDesignation}, tr::WMTrace, i::Int)
+function proxy_delta_pi(m::MentalModule{TargetDesignation}, tr::STrace, i::Int)
     protocol, dm_state = mparse(m)
     st = get_last_state(tr)
     pi_trace = dm_state.chain[i]

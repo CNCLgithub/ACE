@@ -3,7 +3,7 @@
 # Ancestral Proposals
 ################################################################################
 
-function object_ancestral_proposal(trace::WMTrace,
+function object_ancestral_proposal(trace::STrace,
                                    idx::Int,
                                    back::Int = 3)
     t, _... = get_args(trace)

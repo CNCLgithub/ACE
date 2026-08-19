@@ -4,7 +4,7 @@ export AdaptiveComputation
 # Adaptive Computation
 ################################################################################
 
-@with_kw struct AdaptiveComputation{V, C} <: AttentionProtocol
+@kwdef struct AdaptiveComputation{V, C} <: AttentionProtocol
     vis_partition::TracePartition{V} = WMPartition{V}()
     cog_partition::TracePartition{C} = WMPartition{C}()
     "Minimum number of moves"

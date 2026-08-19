@@ -3,11 +3,16 @@ module ACE
 using Gen
 using Luxor
 using GenRFS
+using Printf
+using Distances
 using PythonCall
 using StaticArrays
 using DataStructures
 using NearestNeighbors
 using DocStringExtensions
+using Parameters: @unpack
+
+# using GenParticleFilters
 
 # Pointers to Python imports
 const sys = Ref{Py}()
@@ -25,5 +30,7 @@ end
 
 include("utils/utils.jl")
 include("python.jl")
+include("world_model/world_model.jl")
+include("agent/agent.jl")
 
 end # module ACE

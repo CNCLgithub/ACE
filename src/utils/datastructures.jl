@@ -79,7 +79,7 @@ function Base.copyto!(dst::CircularBuffer{K},
 end
 
 
-# @with_kw struct HashRegistry{C, I}
+# @kwdef struct HashRegistry{C, I}
 #     coords::Dict{UInt, C}
 #     integral::Dict{UInt, I}
 #     decay::Float64 = 1.0
