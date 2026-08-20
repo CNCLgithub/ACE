@@ -74,7 +74,7 @@ function sample_trial()
     ])
 
     motion = BrownianVel()
-    FIXATION_POINT, BASE_RADIUS, GROWTH_RATE, OVERLAP_DENSITY = S2V32(0,0), 25.0, 0.08, 2.0
+    FIXATION_POINT, BASE_RADIUS, GROWTH_RATE, OVERLAP_DENSITY = S2V32(0,0), 25.0, 0.08, 1.25
     graphics = RFGraphics((400, 400), BASE_RADIUS, GROWTH_RATE, OVERLAP_DENSITY, FIXATION_POINT, istate)
     wm = WorldModel(motion, graphics)
 
@@ -114,7 +114,8 @@ function test_perception()
             # Receptive Fields colored by Variance
             paint_state(wm.graphics, gt_states[t]; mode=:variance, show_objects=false, back_color="black"),
             # Inferred states
-            paint_state(perception, true)
+            paint_state(perception, true);
+            hpad=10
          )
     
 	end
