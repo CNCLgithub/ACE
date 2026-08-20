@@ -1,10 +1,10 @@
 using Luxor: sethue, Point, circle, setopacity
 
 function paint_state(att::MentalModule{AdaptiveComputation},
-                     dec::MentalModule{TargetDesignation},
+                     # dec::MentalModule{TargetDesignation},
                      drawing, ret_finish=true)
-    # paint_attention_hashmap!(drawing, att)
-    paint_fixation_prediction!(drawing, att, dec)
+    paint_attention_hashmap!(drawing, att)
+    # paint_fixation_prediction!(drawing, att, dec)
     paint_attention_load!(drawing, att)
     ret_finish && finish()
     return drawing
@@ -67,7 +67,7 @@ function paint_attention_bar!(
 
     # ── Label ────────────────────────────────────────────────────────────────
     @layer begin
-        sethue(0.0, 0.0, 0.0)
+        sethue(1.0, 1.0, 1.0)
         setopacity(1.0)
         fontsize(9)
         text("$(round(Int, load*100))%",
@@ -89,7 +89,7 @@ function paint_attention_hashmap!(drawing, att::MentalModule{AdaptiveComputation
     load_pct = 1.5*state.avg_load / protocol.load
     npoints = length(state.dPi.samples)
     ws = softmax(collect(state.dPi.samples), protocol.itemp)
-    lmul!(load_pct / maximum(ws), ws)
+    map!(x -> x * load_pct / maximum(ws), ws)
     for i = 1:npoints
         x,y,t = state.dPi.coords[i]
         w = ws[i]

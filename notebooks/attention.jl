@@ -25,6 +25,7 @@ begin
 	using Luxor
 	using PlutoUI
 	using Random
+	using Printf
 	
 	using Revise
 	using GenRFS
@@ -68,17 +69,17 @@ cm-editor .cm-scroller,
 # ╔═╡ ccc3c256-6daa-43db-b3a9-e3a593c80c2a
 function sample_trial()
     istate = WorldState([
-        Disc(S2V(-10, 10), S2V(1, 0), 10.0),
-        Disc(S2V(10, 10), S2V(-1, 0), 10.0),
-        Disc(S2V(0, 10), S2V(0.5, -1), 10.0),
+        Disc(S2V(   0,   0), S2V(1, 0), 10.0),
+        Disc(S2V( 100,   0), S2V(-1, 0), 10.0),
+        Disc(S2V(   0, 100), S2V(0.5, -1), 10.0),
     ])
 
     motion = BrownianVel()
     graphics = RFGraphics((400, 400), S2V32(0, 0), istate,
                           overlap_density=1.0,
                           target_rf_count=128,
-                          fovea_radius_ratio=0.10,
-                          fovea_rf_fraction=0.35)
+                          fovea_radius_ratio=0.15,
+                          fovea_rf_fraction=0.45)
                          
     wm = WorldModel(motion, graphics)
 
@@ -108,28 +109,46 @@ function test_decision()
     perception = MentalModule(vis, vstate)
 
     decision_making = MentalModule(TargetDesignation(;ntarget = 1))
-    
+
+
+    attention = MentalModule(AdaptiveComputation(
+        base_steps = 3,
+        buffer_size = 100,
+        nns = 20,
+        itemp = 3.0,
+        load = 20,
+        load_m = 5.0,
+        load_x0 = 15.0,
+        vis_partition=WMPartition{ACE.STrace}(),
+        cog_partition=WMPartition{ACE.PiTrace}(),
+    ))
+
+    avg_runtime = 0.0
 	snapshots = Vector{Drawing}(undef, time)
 	for t = 1:time
-        ACE.step_module!(perception, t, obs[t])
-        ACE.step_module!(decision_making, t, perception)
+        stats = @timed begin
+            ACE.step_module!(perception, t, obs[t])
+            ACE.step_module!(decision_making, t, perception)
+            ACE.step_module!(attention, t, perception, decision_making)
+        end
+        avg_runtime += stats.time
         @show decision_expectation(decision_making)
         # Visualizations
         inferred = paint_state(perception, false)
-        inferred = paint_state(decision_making, inferred)
+        inferred = paint_state(decision_making, inferred, false)
+        inferred = paint_state(attention, inferred)
         
         snapshots[t] = hcat(
             paint_state(gt_states[t], wm, true), # gt state
             # Receptive Fields colored by Mean RGB
             paint_state(wm.graphics, gt_states[t]; mode=:mean, show_objects=false, back_color="black"),
-            # Receptive Fields colored by Variance
-            paint_state(wm.graphics, gt_states[t]; mode=:variance, show_objects=false, back_color="black"),
             # Inferred states
             inferred;
             hpad=10
         )
         
-        end
+    end
+    @printf "Average runtime: %.2fms" avg_runtime/time*1000
     return snapshots
 end;
 

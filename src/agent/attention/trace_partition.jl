@@ -32,7 +32,7 @@ const MODEL_TRACE = Union{STrace, PiTrace}
 
 function latent_size(::WMPartition{T}, tr::T) where {T<:STrace}
     state = get_last_state(tr)
-    length(state.dynamic)
+    length(state.objects)
 end
 
 # REVIEW: encode shape or color?
@@ -40,8 +40,8 @@ function get_coord(p::WMPartition{T}, tr::T, idx::Int
                    ) where {T<:STrace}
     t, _... = get_args(tr)
     state = get_last_state(tr)
-    _, pos, _ = state.dynamic[idx]
-    x, y = pos
+    obj = state.objects[idx]
+    x, y = obj.pos
     S3V(x, y, p.time_factor * t)
 end
 function get_time_coord(tr::STrace)

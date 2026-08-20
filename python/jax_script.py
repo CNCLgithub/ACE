@@ -76,70 +76,85 @@ def sync_and_logpdf(observed_rgb, fixation, fields, objects, n : int) -> float :
 
 def generate_receptive_fields(
     image_shape,
-    overlap_density=0.85,
+    overlap_density=None,
     target_rf_count=128,
     fovea_radius_ratio=0.03, # Fovea radius % of max distance from center
     fovea_rf_fraction=0.45,  # 45% of all RFs allocated to fovea
 ):
     """
-    Generates receptive fields with strong eccentricity scaling:
-    - ~45% of RFs tightly packed inside 2.5% of the radius (micro-radii).
-    - Remaining ~55% scale in radius linearly with eccentricity out to the periphery.
+    1. Fovea: Uniformly packed, non-overlapping concentric rings.
+    2. Periphery / Parafovea: Successive concentric rings tangent to the foveal outer
+       boundary and each other with zero radial gap and minimal overlap.
     """
     height, width = image_shape[:2]
     half_w, half_h = 0.5 * width, 0.5 * height
     max_dist = np.sqrt(half_w**2 + half_h**2)
-    
-    r_fovea_max = max_dist * fovea_radius_ratio
-    n_fovea = int(np.round(target_rf_count * fovea_rf_fraction)) # e.g. 44 for target=98
-    
+
+    r_fovea = max_dist * fovea_radius_ratio
+    n_fovea = int(np.round(target_rf_count * fovea_rf_fraction))
+    n_periph = target_rf_count - n_fovea
+
     fields = []
-    
-    # -------------------------------------------------------------
-    # 1. High-Density Central Fovea (1-3% of visual field)
-    # -------------------------------------------------------------
-    fovea_base_r = r_fovea_max / 3.5
-    fields.append(np.array([0.0, 0.0, fovea_base_r]))
-    
-    curr_dist = fovea_base_r * overlap_density
-    while len(fields) < n_fovea:
-        r = fovea_base_r * (1.0 + 0.2 * (curr_dist / max(r_fovea_max, 1e-3)))
-        spacing = r * overlap_density
-        count = max(1, int(np.round(2 * np.pi * curr_dist / spacing)))
-        count = min(count, n_fovea - len(fields))
-        
-        for angle in np.linspace(0, 2 * np.pi, count, endpoint=False):
-            fields.append(np.array([curr_dist * np.cos(angle), curr_dist * np.sin(angle), r]))
-            if len(fields) >= n_fovea:
-                break
-        curr_dist += spacing
 
     # -------------------------------------------------------------
-    # 2. Geometric Peripheral Rings (Linear Cortical Scaling)
+    # 1. FOVEA: Uniform, non-overlapping circle packing
     # -------------------------------------------------------------
-    # Log/geometrically spaced concentric rings from foveal edge out to visual boundary
-    n_periph_rings = 4
-    ring_radii = np.geomspace(r_fovea_max * 2.5, max_dist * 0.85, n_periph_rings)
-    
-    for i, ring_dist in enumerate(ring_radii):
-        # RF radius scales linearly with eccentricity: r(e) ~ k * e
-        rf_r = ring_dist * 0.28
-        spacing = rf_r * overlap_density
-        count = max(1, int(np.round(2 * np.pi * ring_dist / spacing)))
-        
-        if i == len(ring_radii) - 1:
-            count = max(1, target_rf_count - len(fields))
-        else:
-            count = min(count, target_rf_count - len(fields))
-            
-        for angle in np.linspace(0, 2 * np.pi, count, endpoint=False):
-            x = ring_dist * np.cos(angle)
-            y = ring_dist * np.sin(angle)
-            fields.append(np.array([x, y, rf_r]))
-            if len(fields) >= target_rf_count:
-                break
-        if len(fields) >= target_rf_count:
-            break
+    ring_counts = [1]
+    k = 1
+    while sum(ring_counts) < n_fovea:
+        c_k = int(np.floor(np.pi / np.arcsin(1.0 / (2.0 * k))))
+        ring_counts.append(c_k)
+        k += 1
+
+    n_rings_fovea = len(ring_counts) - 1
+    ring_counts[-1] -= (sum(ring_counts) - n_fovea)
+
+    # Tangent radius inside fovea
+    rf_fovea_r = r_fovea / (2.0 * n_rings_fovea + 1.0)
+
+    # Center RF
+    fields.append(np.array([0.0, 0.0, rf_fovea_r]))
+
+    # Concentric foveal rings
+    for k in range(1, len(ring_counts)):
+        c_k = ring_counts[k]
+        dist_k = 2.0 * k * rf_fovea_r
+        for j in range(c_k):
+            theta = j * (2.0 * np.pi / c_k)
+            fields.append(np.array([dist_k * np.cos(theta), dist_k * np.sin(theta), rf_fovea_r]))
+
+    # Outer radius of the foveal region
+    r_fovea_outer = r_fovea
+
+    # -------------------------------------------------------------
+    # 2. PARAFOVEA & PERIPHERY: Continuous radial progression (No Gaps)
+    # -------------------------------------------------------------
+    # Distribute remaining RFs across ~5 concentric expanding rings
+    n_periph_rings = 5
+    periph_counts = [int(np.round(n_periph / n_periph_rings))] * n_periph_rings
+    periph_counts[-1] += n_periph - sum(periph_counts)
+
+    # First peripheral ring touches the foveal outer boundary exactly:
+    # d_0 - r_0 = r_fovea_outer  =>  d_0 * (1 - sin(pi / count)) = r_fovea_outer
+    s_0 = np.sin(np.pi / periph_counts[0])
+    curr_d = r_fovea_outer / (1.0 - s_0)
+
+    for i, count in enumerate(periph_counts):
+        s_i = np.sin(np.pi / count)
+        rf_r = curr_d * s_i
+
+        offset = (np.pi / count) if (i % 2 == 1) else 0.0
+
+        for j in range(count):
+            theta = offset + j * (2.0 * np.pi / count)
+            fields.append(np.array([curr_d * np.cos(theta), curr_d * np.sin(theta), rf_r]))
+
+        # Tangent step to next ring: next inner boundary touches current outer boundary:
+        # d_{next} - r_{next} = d_{curr} + r_{curr}
+        if i < len(periph_counts) - 1:
+            next_count = periph_counts[i + 1]
+            s_next = np.sin(np.pi / next_count)
+            curr_d = (curr_d * (1.0 + s_i)) / (1.0 - s_next)
 
     return jnp.array(fields)
 
