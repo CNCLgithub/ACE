@@ -21,7 +21,7 @@ function scene_to_array(state::WorldState)
         scene_buf[i] = [obj.pos..., # position
                         obj.radius, # radius
                         0,          # shape - circle
-                        0, 0, 0]    # rgb
+                        1, 1, 1]    # rgb
     end
     return scene_buf
 end
@@ -62,7 +62,7 @@ function sync_scene(graphics::RFGraphics,
         graphics.scene_buf[i] = [obj.pos..., # position
                                  obj.radius, # radius
                                  0,          # shape - circle
-                                 0, 0, 0]    # rgb
+                                 1, 1, 1]    # rgb
     end
 
     return graphics
@@ -71,11 +71,12 @@ end
 function field_predict(graphics::RFGraphics)
     n_points = length(graphics.scene_buf)
     # 2. Invoke Python sync and JIT render
-    outputs_py = jax_script[].sync_and_render(
+    outputs_py = jax_script[].sync_and_sample(
         graphics.fixation_buf_py,
         graphics.fields_py,
         graphics.scene_buf_py,
-        n_points
+        n_points,
+        rand(Int64)
     )
     return outputs_py
 end

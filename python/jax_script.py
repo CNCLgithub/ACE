@@ -81,38 +81,39 @@ def generate_receptive_fields(
     overlap_density,
     target_rf_count=98,
 ):
-    """Generate the existing two-size foveal/peripheral RF layout."""
+    """Generate the foveal/peripheral RF layout centered at (0, 0)."""
     height, width = image_shape[:2]
-    fix_x, fix_y = [0, 0]
-    corners = np.array([[-0.5*width, -0.5*height],
-                        [ 0.5*width, -0.5*height],
-                        [-0.5*width,  0.5*height],
-                        [ 0.5*width,  0.5*height]])
-    max_dist = 0.5 * np.maximum(width, height)
+    fix_x, fix_y = [0.0, 0.0]
+    
+    half_w = 0.5 * width
+    half_h = 0.5 * height
+    max_dist = np.sqrt(half_w**2 + half_h**2)
 
     def rf_radius(distance):
         return base_radius * (0.7 if distance <= 100 else 1.2)
 
-    # Add receptive field at the center of the fovea
+    # Center RF
     r0 = rf_radius(0)
     fields = [np.array([fix_x, fix_y, r0])]
     current_dist = r0 * overlap_density
-    while current_dist < max_dist + base_radius:
+
+    while current_dist <= max_dist + base_radius:
         radius = rf_radius(current_dist)
         spacing = radius * overlap_density
-        count = max(1, int(2 * np.pi * current_dist / spacing))
+        count = max(1, int(np.round(2 * np.pi * current_dist / spacing)))
         for angle in np.linspace(0, 2 * np.pi, count, endpoint=False):
             x = current_dist * np.cos(angle)
             y = current_dist * np.sin(angle)
-            if -radius <= x <= width + radius and -radius <= y <= height + radius:
+            
+            # Check bounds relative to centered origin
+            if (-half_w - radius <= x <= half_w + radius) and (-half_h - radius <= y <= half_h + radius):
                 fields.append(np.array([x, y, radius]))
                 if len(fields) >= target_rf_count:
                     return jnp.array(fields)
 
         current_dist += spacing
 
-    fields = jnp.array(fields)
-    return fields
+    return jnp.array(fields)
 
 def circle_circle_intersection(x1, y1, r1, x2, y2, r2):
     # Area of intersection between two circles.
@@ -145,7 +146,7 @@ def predict_rf_stats(fixation, rfs, objects):
     '''
     obj_x, obj_y, obj_size, obj_type, obj_colors = objects[:, 0], objects[:, 1], objects[:, 2], objects[:, 3], objects[:, 4:8]
 
-    background_color = jnp.array([1.0, 1.0, 1.0])
+    background_color = jnp.array([0.0, 0.0, 0.0])
 
     # Equivalent radii
     circle_radius = obj_size

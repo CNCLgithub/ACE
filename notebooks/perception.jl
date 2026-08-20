@@ -68,16 +68,17 @@ cm-editor .cm-scroller,
 # ╔═╡ ccc3c256-6daa-43db-b3a9-e3a593c80c2a
 function sample_trial()
     istate = WorldState([
-        Disc(S2V(-10, 10), S2V(1, 0), 5.0),
-        Disc(S2V(10, 10), S2V(-1, 0), 5.0),
-        Disc(S2V(0, 10), S2V(0.5, -1), 5.0),
+        Disc(S2V(-10, 10), S2V(1, 0), 10.0),
+        Disc(S2V(10, 10), S2V(-1, 0), 10.0),
+        Disc(S2V(0, 10), S2V(0.5, -1), 10.0),
     ])
 
     motion = BrownianVel()
-    graphics = RFGraphics((400, 400), 10.0, 2.0, 0.1, S2V32(0,0), istate)
+    FIXATION_POINT, BASE_RADIUS, GROWTH_RATE, OVERLAP_DENSITY = S2V32(0,0), 25.0, 0.08, 2.0
+    graphics = RFGraphics((400, 400), BASE_RADIUS, GROWTH_RATE, OVERLAP_DENSITY, FIXATION_POINT, istate)
     wm = WorldModel(motion, graphics)
 
-    time = 10
+    time = 30
     tr, _ = generate(s_model, (time, istate, wm))
     choices = get_choices(tr)
 
@@ -86,12 +87,13 @@ function sample_trial()
         obs[t] = choicemap((:states => t => :observe, choices[:states => t => :observe]))
     end
 
-    return (time, istate, wm, obs)
+    states = get_retval(tr)
+    return (states, time, istate, wm, obs)
 end;
 
 # ╔═╡ fff7b806-f785-45f4-982f-03d64aaa502f
 function test_perception()
-    (time, istate, wm, obs) = sample_trial()
+    (gt_states, time, istate, wm, obs) = sample_trial()
 
     vis = PFPerception(
         PFProtocol(; particles=10),
@@ -105,8 +107,16 @@ function test_perception()
 	for t = 1:time
         ACE.step_module!(perception, t, obs[t])
 		# Visualizations
-		drawing = paint_state(perception, true)
-		snapshots[t] = drawing
+         snapshots[t] = hcat(
+            paint_state(gt_states[t], wm, true), # gt state
+            # Receptive Fields colored by Mean RGB
+            paint_state(wm.graphics, gt_states[t]; mode=:mean, show_objects=false, back_color="black"),
+            # Receptive Fields colored by Variance
+            paint_state(wm.graphics, gt_states[t]; mode=:variance, show_objects=false, back_color="black"),
+            # Inferred states
+            paint_state(perception, true)
+         )
+    
 	end
     return snapshots
 end;
