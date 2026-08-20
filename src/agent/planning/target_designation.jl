@@ -40,19 +40,20 @@ function select_targets(ws::WorldState, ntargets::Int64)
     n = length(ws.objects)
     n > ntargets || error("Too many specified targets")
 
-    elems = Vector{RandomFiniteElement}(undef, ntargets + 1)
+    elems = Vector{RFE_S2V}(undef, ntargets + 1)
     @inbounds for i = 1:ntargets
         obj = ws.objects[i]
-        elems[i] = BernoulliElement(0.95, broadcasted_normal, (obj.pos, 2.0))
+        elems[i] =
+            BernoulliElement{S2V}(0.95, normal_s2v, (obj.pos, 2.0))
     end
 
     ndistractors = n - ntargets
     positions = map(x -> x.pos, ws.objects[(ntargets+1:n)])
-    mu = mean(positions)
-    sigma = std(positions; mean=mu)
+    mu = S2V(mean(positions))
+    sigma = sum(std(positions; mean=mu))
     elems[ntargets + 1] = PoissonElement(
         Float64(ndistractors),
-        broadcasted_normal,
+        normal_s2v,
         (mu, sigma)
     )
     return elems
@@ -118,21 +119,20 @@ function update_expectation!(m::MentalModule{TargetDesignation})
 end
 
 function update_expectation!(state::TDState, p::TargetDesignation)
-    new_expectation, _ =
+    new_expectation =
         approximate_td_marginal(p, state.chain)
     # smoothing
     state.expectation = 0.1*state.expectation + 0.9*new_expectation
     return nothing
 end
 
-function approximate_td_marginal(p::TargetDesignation, traces::Vector{<:PiTrace})
+function approximate_td_marginal(p::TargetDesignation, traces::Vector)
     # REVIEW: weighted mean?
     exp_pi = mean(expected_reward_td_rfs, traces)
 end
 
-function expected_reward_td_rfs(trace::STrace, temp::Float64 = 10.0)
-    t = first(get_args(trace))
-    rfs = extract_rfs_subtrace(trace, t)
+function expected_reward_td_rfs(trace::PiTrace, temp::Float64 = 10.0)
+    rfs = extract_rfs_subtrace(trace)
     pt = rfs.ptensor
     nx,ne,np = size(pt)
     # Assumes last element is ensemble

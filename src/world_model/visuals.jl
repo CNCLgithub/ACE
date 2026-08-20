@@ -153,7 +153,7 @@ function paint_receptive_fields!(graphics::RFGraphics;
             paint!(rf_pos_r, rgb; opacity=fill_opacity, mode=:fill)
             # Subtle boundary edge
             if stroke_opacity > 0.0
-                paint!(rf_pos_r, rgb; opacity=stroke_opacity, mode=:stroke, line_width=1.0)
+                paint!(rf_pos_r, S3V(1,1,1); opacity=stroke_opacity, mode=:stroke, line_width=1.0)
             end
 
         elseif mode === :variance

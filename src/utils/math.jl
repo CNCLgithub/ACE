@@ -24,7 +24,8 @@ function softmax!(out::Array{Float64}, x::Array{Float64}, t::Float64 = 1.0)
         out[i] = @fastmath exp((x[i] - maxx) / t)
         sxs += out[i]
     end
-    rmul!(out, 1.0 / sxs)
+    # rmul!(out, 1.0 / sxs)
+    map!(x -> x / sxs, out)
     return nothing
 end
 

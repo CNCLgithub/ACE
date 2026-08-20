@@ -109,7 +109,7 @@ function test_decision()
 	for t = 1:time
         ACE.step_module!(perception, t, obs[t])
         ACE.step_module!(decision_making, t, perception)
-        
+        @show decision_expectation(decision_making)
 		# Visualizations
          snapshots[t] = hcat(
             paint_state(gt_states[t], wm, true), # gt state
