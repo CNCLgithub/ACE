@@ -7,6 +7,7 @@ using Luxor
 using GenRFS
 using Printf
 using Distances
+using Statistics
 using PythonCall
 using StaticArrays
 using DataStructures

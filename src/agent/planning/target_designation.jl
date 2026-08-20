@@ -43,15 +43,15 @@ function select_targets(ws::WorldState, ntargets::Int64)
     elems = Vector{RandomFiniteElement}(undef, ntargets + 1)
     @inbounds for i = 1:ntargets
         obj = ws.objects[i]
-        elems[i] = IsoElement(broadcasted_normal, (obj.pos, 2.0))
+        elems[i] = BernoulliElement(0.95, broadcasted_normal, (obj.pos, 2.0))
     end
 
     ndistractors = n - ntargets
     positions = map(x -> x.pos, ws.objects[(ntargets+1:n)])
     mu = mean(positions)
-    sigma = sd(positions, mu)
+    sigma = std(positions; mean=mu)
     elems[ntargets + 1] = PoissonElement(
-        ndistractors,
+        Float64(ndistractors),
         broadcasted_normal,
         (mu, sigma)
     )
@@ -60,12 +60,17 @@ end
 
 include("gen.jl")
 
+function select_cm(state::WorldState)
+    n = length(state.objects)
+    choicemap(((:xs => i, state.objects[i].pos) for i = 1:n)...)
+end
+
 function seed_model(p::TargetDesignation, tr::STrace)
-    t, _, wm = get_args(tr)
     istate = get_last_state(tr)
-    args = (istate, p.ntargets)
+    args = (istate, p.ntarget)
+    cm = select_cm(istate)
     trace, _ =
-        generate(target_designation, args)
+        generate(target_designation, args, cm)
     return trace
 end
 
