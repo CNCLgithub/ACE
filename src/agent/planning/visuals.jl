@@ -6,7 +6,69 @@ function paint_state(m::MentalModule{TargetDesignation},
     return drawing
 end
 
-function paint_target_selections!(drawing, m)
-    # Draw a rectangle around the targets
-    # reflect confidence (the retval of the PiTraces) in terms of opacity (more bold => more confident)
+function paint_target_selections!(drawing,
+                                 m::MentalModule{TargetDesignation};
+                                 box_size::Float64 = 34.0,
+                                 target_color = Colors.RGB(0.25, 1.00, 0.25),
+                                 temp::Float64 = 10.0)
+    protocol, state = mparse(m)
+    isempty(state.chain) && return nothing
+
+    ntraces = length(state.chain)
+    ntargets = protocol.ntarget
+
+    # Aggregate target positions and marginal target probabilities across traces
+    for tr in state.chain
+        ws = get_args(tr)[1]
+        n_obs = length(ws.objects)
+
+        # Compute confidence / expected reward for this trace
+        score_val = expected_reward_td_rfs(tr, temp) # Log marginal target score
+        conf = clamp(exp(score_val), 0.1, 1.0)
+
+        # Extract RFS partition associations
+        rfs = extract_rfs_subtrace(tr)
+        pt = rfs.ptensor # [nx, ne, np]
+        nx, ne, np = size(pt)
+        nls = softmax(rfs.pscores, temp)
+
+        # Compute per-object target marginal: P(object i is target)
+        for i = 1:min(n_obs, nx)
+            obj = ws.objects[i]
+            pos = obj.pos
+            point = Point(pos[1], -pos[2])
+
+            # Probability this object is associated with any of the target elements (1:ntargets)
+            p_target = 0.0
+            for p = 1:np
+                for t = 1:min(ntargets, ne - 1)
+                    if pt[i, t, p]
+                        p_target += nls[p]
+                        break
+                    end
+                end
+            end
+
+            # Modulate opacity & boldness by per-object target probability & overall trace confidence
+            effective_alpha = clamp(p_target * conf * (1.5 / ntraces), 0.0, 1.0)
+
+            if effective_alpha > 0.05
+                @layer begin
+                    sethue(target_color)
+                    setopacity(effective_alpha)
+                    setline(2.0 + 2.0 * conf)
+                    
+                    # Draw target bounding box
+                    box(point, box_size, box_size, :stroke)
+                    
+                    # Subtle corner/inner fill for high confidence
+                    if conf > 0.6
+                        setopacity(effective_alpha * 0.15)
+                        box(point, box_size, box_size, :fill)
+                    end
+                end
+            end
+        end
+    end
+    return nothing
 end

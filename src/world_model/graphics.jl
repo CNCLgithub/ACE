@@ -27,18 +27,20 @@ function scene_to_array(state::WorldState)
 end
 
 function RFGraphics(image_shape::Tuple{Int, Int},
-                    base_radius::Float64,
-                    growth_rate::Float64,
-                    overlap_density::Float64,
                     initial_fixation::SVector{2, Float32},
-                    initial_scene::WorldState)
+                    initial_scene::WorldState;
+                    overlap_density=0.85,
+                    target_rf_count=128,
+                    fovea_radius_ratio=0.03,
+                    fovea_rf_fraction=0.45)
 
     # 1. Initialize Receptive Field Geometry on GPU
     fields_py = jax_script[].generate_receptive_fields(
         image_shape,
-        base_radius,
-        growth_rate,
-        overlap_density
+        overlap_density,
+        target_rf_count,
+        fovea_radius_ratio,
+        fovea_rf_fraction
     )
 
     # 2. Allocate fixed host buffers in Julia

@@ -76,11 +76,9 @@ def sync_and_logpdf(observed_rgb, fixation, fields, objects, n : int) -> float :
 
 def generate_receptive_fields(
     image_shape,
-    base_radius=None,         # Kept for signature compatibility
-    growth_rate=None,
     overlap_density=0.85,
-    target_rf_count=98,
-    fovea_radius_ratio=0.025, # Fovea radius = 2.5% of max distance from center
+    target_rf_count=128,
+    fovea_radius_ratio=0.03, # Fovea radius % of max distance from center
     fovea_rf_fraction=0.45,  # 45% of all RFs allocated to fovea
 ):
     """
