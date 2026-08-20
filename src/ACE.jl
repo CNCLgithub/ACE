@@ -1,5 +1,7 @@
 module ACE
 
+export paint_state
+
 using Gen
 using Luxor
 using GenRFS

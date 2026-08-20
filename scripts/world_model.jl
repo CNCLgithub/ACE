@@ -1,3 +1,4 @@
+using Gen
 using ACE
 
 function test_wm()
@@ -12,7 +13,13 @@ function test_wm()
     wm = WorldModel(motion, graphics)
 
 
-    result = time_kernel(1, istate, wm);
+    trace, ls = generate(time_kernel, (1, istate, wm))
+    display(get_choices(trace))
+    @show ls
+    return nothing
 end
 
 test_wm();
+
+function test_perception()
+end

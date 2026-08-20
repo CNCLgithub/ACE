@@ -25,4 +25,5 @@ include("motion.jl")
 include("graphics.jl")
 include("gen.jl")
 include("trace.jl")
+include("visuals.jl")
 

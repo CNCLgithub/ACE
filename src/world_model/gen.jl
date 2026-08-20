@@ -1,4 +1,4 @@
-export time_kernel
+export s_model
 
 @gen (static) function force_prior(var::Float64)
     dx ~ normal(0., var)
@@ -18,4 +18,12 @@ end
     # observe receptive fields
     observe ~ receptive_fields(graphics)
     return next
+end
+
+
+@gen (static) function s_model(t::Int,
+                               istate::WorldState,
+                               wm::WorldModel)
+    states ~ Unfold(time_kernel)(t, istate, wm)
+    return states
 end

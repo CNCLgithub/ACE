@@ -93,10 +93,13 @@ const receptive_fields = ReceptiveFields()
 
 function Gen.random(::ReceptiveFields, graphics::RFGraphics)
     n = length(graphics.scene_buf)
-    jax_script[].sync_and_sample(graphics.fixation_buf_py,
-                                 graphics.fields_py,
-                                 graphics.scene_buf_py,
-                                 n)
+    sample =
+        jax_script[].sync_and_sample(graphics.fixation_buf_py,
+                                     graphics.fields_py,
+                                     graphics.scene_buf_py,
+                                     n,
+                                     rand(Int64))
+    return sample
 end
 
 (::ReceptiveFields)(graphics::RFGraphics) = random(receptive_fields, graphics)
@@ -104,10 +107,10 @@ end
 function Gen.logpdf(::ReceptiveFields, x::Py, graphics::RFGraphics)
     n = length(graphics.scene_buf)
     py = jax_script[].sync_and_logpdf(x,
-                                 graphics.fixation_buf_py,
-                                 graphics.fields_py,
-                                 graphics.scene_buf_py,
-                                 n)
+                                      graphics.fixation_buf_py,
+                                      graphics.fields_py,
+                                      graphics.scene_buf_py,
+                                      n)
     pyconvert(Float64, py)
 end
 

@@ -16,7 +16,7 @@ end
 # State constructor
 PFPerceptionState(v::PFPerception) =
     PFPerceptionState(
-        PFChain(v.pf, vis_model, v.initial_args, v.initial_constraints)
+        PFChain(v.pf, s_model, v.initial_args, v.initial_constraints)
     )
 
 function MentalModule(p::PFPerception)
@@ -50,22 +50,16 @@ function paint_state(m::MentalModule{PFPerception}, ret_finish=true)
     particles = q.chain.particles.traces # REVIEW: this are not `unweighted`
 
     # initialize
-    x, y = wm.dimensions
+    x, y = wm.motion.dimensions
     drawing = init_viz!(x, y)
 
-    # draw static elements
-    for i = 1:nstatic(istate)
-        x = istate.static[i]
-	    paint!(x.shape, x.pos, x.color)
-    end
 
     # draw particle states
     opacity = 3.0 / length(particles)
     for particle = particles
         ws = get_last_state(particle)
-        for i = 1:ndynamic(ws)
-            x, pos, _ = ws.dynamic[i]
-            paint!(x.shape, pos, x.color, opacity)
+        for x = ws.objects
+            paint!(x, S3V(1,1,1), opacity)
         end
     end
 	ret_finish && finish()

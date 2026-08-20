@@ -32,7 +32,8 @@ def test_jax():
 def sync_and_sample(fixation, 
                     fields,
                     scene_buf, 
-                    n_points: int):
+                    n_points: int,
+                    seed: int):
     """Bridge function called from Julia."""
     # Zero-copy reinterpret flat C-contiguous buffers from Julia
     fixation_np = np.frombuffer(fixation, dtype=np.float32)
@@ -44,7 +45,8 @@ def sync_and_sample(fixation,
 
     mean, var = predict_rf_stats(fixation, fields, objects)
     # REVIEW: should probably pass key as arg
-    return (normal(key(1), mean.shape) + mean) * var
+    sample = (normal(key(seed), mean.shape) + mean) * var
+    return np.asarray(sample) # Need to detach to prevent overwriting trace
 
 
 def sync_and_logpdf(observed_rgb, fixation, fields, objects, n : int) -> float :
@@ -60,6 +62,7 @@ def sync_and_logpdf(observed_rgb, fixation, fields, objects, n : int) -> float :
     # Transfer into JAX device arrays
     fixation = jax.device_put(fixation_np)
     objects = jax.device_put(objects_np)
+    observed_rgb = np.asarray(observed_rgb)
 
     # xs = np.frombuffer(observed_rgb, dtype=np.float32)
     means, variances = predict_rf_stats(fixation, fields, objects)
