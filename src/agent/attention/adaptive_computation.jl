@@ -53,7 +53,13 @@ function MentalModule(m::AdaptiveComputation)
     MentalModule(m, AdaptiveAux(m.buffer_size, m.nns))
 end
 
-Base.isempty(x::AdaptiveAux) = isempty(x.dPi) || isempty(x.dS) || isempty(x.dK)
+function isready(m::MentalModule{<:AdaptiveComputation})
+    _, state = mparse(m)
+    !isempty(state)
+end
+
+Base.isempty(x::AdaptiveAux) = isempty(x.dPi)
+# Base.isempty(x::AdaptiveAux) = isempty(x.dPi) || isempty(x.dS) || isempty(x.dK)
 
 function update_impact!(buffer::HashMap,
                         partition::TracePartition{T},
@@ -224,3 +230,19 @@ function attend!(att::MentalModule{<:AdaptiveComputation},
 
     return nothing
 end
+
+function attention_map(m::MentalModule{<:AdaptiveComputation})
+    prot, state = mparse(m)
+
+    dPi = state.dPi
+    # REVIEW: any way to prevent new allocations?
+    n = length(dPi.coords)
+    amap = Vector{S2V}(undef, n)
+    weights = Vector{Float64}(undef, n)
+    @inbounds for i = 1:n
+        x, y, _ = dPi.coords[i]
+        amap[i] = S2V(x, y)
+        weights[i] = dPi.samples[i]
+    end
+    (amap, weights)
+end 

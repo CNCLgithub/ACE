@@ -78,7 +78,7 @@ function field_predict(graphics::RFGraphics)
         graphics.fields_py,
         graphics.scene_buf_py,
         n_points,
-        rand(Int64)
+        rand(Int32)
     )
     return outputs_py
 end
@@ -95,14 +95,7 @@ const receptive_fields = ReceptiveFields()
 # TODO: Implement the following methods using the interface to python
 
 function Gen.random(::ReceptiveFields, graphics::RFGraphics)
-    n = length(graphics.scene_buf)
-    sample =
-        jax_script[].sync_and_sample(graphics.fixation_buf_py,
-                                     graphics.fields_py,
-                                     graphics.scene_buf_py,
-                                     n,
-                                     rand(Int64))
-    return sample
+    field_predict(graphics)
 end
 
 (::ReceptiveFields)(graphics::RFGraphics) = random(receptive_fields, graphics)

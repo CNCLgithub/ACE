@@ -63,6 +63,8 @@ abstract type PerceptionProtocol <: MentalProtocol end
 abstract type PlanningProtocol <: MentalProtocol end
 "Rations resources within inference procedures"
 abstract type AttentionProtocol <: MentalProtocol end
+"Manages fixation across time"
+abstract type FixationProtocol <: MentalProtocol end
 
 
 """
@@ -75,17 +77,18 @@ A simulated agent.
 $(TYPEDFIELDS)
 
 """
-mutable struct Agent{
-                     V<:PerceptionProtocol,
+mutable struct Agent{V<:PerceptionProtocol,
                      P<:PlanningProtocol,
-                     A<:AttentionProtocol
-                    }
+                     A<:AttentionProtocol,
+                     F<:FixationProtocol}
     "Observations -> Worlds"
     perception::MentalModule{V}
     "Worlds -> Goals"
     planning::MentalModule{P}
     "What to attend to in the world"
     attention::MentalModule{A}
+    "Where to look"
+    fixation::MentalModule{F}
 end
 
 
@@ -112,6 +115,7 @@ include("inference/inference.jl")
 include("perception/perception.jl") 
 include("planning/planning.jl") 
 include("attention/attention.jl")
+include("fixation/fixation.jl")
 
 # agent-tailored visualizations
 # include("visuals.jl")

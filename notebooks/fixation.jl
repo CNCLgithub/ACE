@@ -128,6 +128,8 @@ function test_decision()
         cog_partition=WMPartition{ACE.PiTrace}(),
     ))
 
+    fixation = MentalModule(GDFixation())
+
     avg_runtime = 0.0
 	snapshots = Vector{Drawing}(undef, time)
 	for t = 1:time
@@ -135,6 +137,7 @@ function test_decision()
             ACE.step_module!(perception, t, obs[t])
             ACE.step_module!(decision_making, t, perception)
             ACE.step_module!(attention, t, perception, decision_making)
+            ACE.step_module!(fixation, t, perception, attention)
         end
         avg_runtime += stats.time
         @show decision_expectation(decision_making)
