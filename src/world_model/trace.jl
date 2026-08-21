@@ -5,8 +5,8 @@
 gen_fn(::WorldModel) = s_model
 const STrace = Gen.get_trace_type(s_model)
 
-function get_last_state(tr::STrace)
-    t, wm, istate = get_args(tr)
+function get_last_state(tr::STrace)::WorldState
+    t, istate, _ = get_args(tr)
     t == 0 ? istate : last(get_retval(tr))
 end
 

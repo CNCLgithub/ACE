@@ -89,21 +89,21 @@ function sample_trial()
     wm = WorldModel(motion, graphics)
 
     time = 30
-    tr, _ = generate(s_model, (time, istate, wm))
-    choices = get_choices(tr)
-
-    obs = Vector{ChoiceMap}(undef, time)
-    for t = 1:time
-        obs[t] = choicemap((:states => t => :observe, choices[:states => t => :observe]))
+    # Simulate true physical object trajectory forward in time
+    gt_states = Vector{WorldState}(undef, time)
+    curr_state = istate
+    for t in 1:time
+        forces = [S2V(randn()*0.1, randn()*0.1) for _ in 1:length(curr_state.objects)]
+        curr_state = ACE.resolve_motion(wm.motion, curr_state, forces)
+        gt_states[t] = curr_state
     end
 
-    states = get_retval(tr)
-    return (states, time, istate, wm, obs)
+    return (gt_states, time, istate, wm)
 end
 
 # ╔═╡ fff7b806-f785-45f4-982f-03d64aaa502f
 function test_decision()
-    (gt_states, time, istate, wm, obs) = sample_trial()
+    (gt_states, time, istate, wm) = sample_trial()
 
     vis = PFPerception(
         PFProtocol(; particles=10),
@@ -113,8 +113,7 @@ function test_decision()
     vstate = PFPerceptionState(vis)
     perception = MentalModule(vis, vstate)
 
-    decision_making = MentalModule(TargetDesignation(;ntarget = 1))
-
+    decision_making = MentalModule(TargetDesignation(; ntarget = 1))
 
     attention = MentalModule(AdaptiveComputation(
         base_steps = 3,
@@ -124,39 +123,50 @@ function test_decision()
         load = 20,
         load_m = 5.0,
         load_x0 = 15.0,
-        vis_partition=WMPartition{ACE.STrace}(),
-        cog_partition=WMPartition{ACE.PiTrace}(),
+        vis_partition = WMPartition{ACE.STrace}(),
+        cog_partition = WMPartition{ACE.PiTrace}(),
     ))
 
     fixation = MentalModule(GDFixation())
 
     avg_runtime = 0.0
-	snapshots = Vector{Drawing}(undef, time)
-	for t = 1:time
+    snapshots = Vector{Drawing}(undef, time)
+
+    for t = 1:time
+        # 1. Update ground-truth graphics sensor with the current agent fixation
+        _, fstate = mparse(fixation)
+        current_fix = S2V(fstate.fixation[1], fstate.fixation[2])
+        wm.graphics.fixation_buf[1] = current_fix[1]
+        wm.graphics.fixation_buf[2] = current_fix[2]
+        ACE.sync_scene(wm.graphics, gt_states[t])
+
+        # 2. Sample sensory observation conditioned on current state & fixation
+        obs_sample = ACE.field_predict(wm.graphics)
+        obs_t = choicemap((:states => 1 => :observe, obs_sample))
+
+        # 3. Step cognitive modules
         stats = @timed begin
-            ACE.step_module!(perception, t, obs[t])
+            ACE.step_module!(perception, 1, obs_t)
             ACE.step_module!(decision_making, t, perception)
             ACE.step_module!(attention, t, perception, decision_making)
             ACE.step_module!(fixation, t, perception, attention)
         end
         avg_runtime += stats.time
-        # @show decision_expectation(decision_making)
-        # Visualizations
+
+        # 4. Render visualizations
         inferred = paint_state(perception, false)
         inferred = paint_state(decision_making, inferred, false)
         inferred = paint_state(attention, inferred)
-        
+
         snapshots[t] = hcat(
-            paint_state(gt_states[t], wm, true), # gt state
-            # Receptive Fields colored by Mean RGB
+            paint_state(gt_states[t], wm, true),
             paint_state(wm.graphics, gt_states[t]; mode=:mean, show_objects=false, back_color="black"),
-            # Inferred states
             inferred;
             hpad=10
         )
-        
     end
-    @printf "Average runtime: %.2fms" avg_runtime/time*1000
+
+    @printf "Average runtime: %.2fms\n" (avg_runtime / time * 1000)
     return snapshots
 end;
 

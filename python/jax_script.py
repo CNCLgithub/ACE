@@ -330,7 +330,7 @@ def resolve_next_fixation_gd(
     v_t: jnp.ndarray,
     target_samples: jnp.ndarray,
     task_relevance: jnp.ndarray,
-    eta_saccade: float = 0.0,
+    eta_saccade: float = 0.01,
     lr: float = 200.0,
     momentum: float = 0.9,
     num_steps: int = 100,
@@ -380,4 +380,5 @@ def resolve_next_fixation_gd(
     f_opt, _ = jax.lax.fori_loop(0, num_steps, gd_step, (f_t, jnp.zeros(2)))
     gain = loss_fn(f_t) - loss_fn(f_opt)
     # With insufficient improvement, continue smooth pursuit instead of saccading.
-    return jnp.where(gain > eta_saccade, f_opt, f_t + v_t)
+    is_smooth = gain > eta_saccade
+    return jnp.where(is_smooth, f_opt, f_t + v_t)

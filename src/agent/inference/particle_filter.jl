@@ -46,10 +46,11 @@ function inference_step!(chain::PFChain,
                          args::Tuple,
                          argdiffs::Tuple,
                          obs::ChoiceMap)
-    # Resample before moving on...
-    maybe_resample!(chain.particles)
+    @show first(args)
     # update the state of the particles
     Gen.particle_filter_step!(chain.particles, args, argdiffs, obs)
+    # Resample before moving on...
+    maybe_resample!(chain.particles)
     return nothing
 end
 
