@@ -45,7 +45,6 @@ end
 function step_module!(f::MentalModule{F}, t::Int64, v::MentalModule{V}, a::MentalModule{A}
                       ) where {F<:GDFixation, V<:PFPerception, A<:AdaptiveComputation}
     # No attention scores yet
-    @show isready(a)
     isready(a) || return nothing
     # 1. Attention map
     amap, weights = attention_map(a)
@@ -79,14 +78,15 @@ function opt_fix!(fstate::GDFixationState, fprot::GDFixation,
     )
 
     # Convert output back to Julia array and update fixation buffers
-    np = pyimport("numpy")
-    new_fix = pyconvert(Vector{Float32}, np.array(outputs_py))
+    new_fix = pyconvert(Vector{Float32}, outputs_py)
 
     fstate.fixation_vel[1] = new_fix[1] - fstate.fixation[1]
     fstate.fixation_vel[2] = new_fix[2] - fstate.fixation[2]
 
     fstate.fixation[1] = new_fix[1]
     fstate.fixation[2] = new_fix[2]
+
+    @show new_fix
 
     return nothing
 end

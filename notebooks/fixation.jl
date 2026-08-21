@@ -140,7 +140,7 @@ function test_decision()
             ACE.step_module!(fixation, t, perception, attention)
         end
         avg_runtime += stats.time
-        @show decision_expectation(decision_making)
+        # @show decision_expectation(decision_making)
         # Visualizations
         inferred = paint_state(perception, false)
         inferred = paint_state(decision_making, inferred, false)

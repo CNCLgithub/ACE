@@ -102,7 +102,7 @@ def optimize_fixation(
         targets_dev,
         weights_dev,
     )
-    return new_fixation
+    return np.array(new_fixation)
 
 
 ################################################################################
@@ -330,7 +330,7 @@ def resolve_next_fixation_gd(
     v_t: jnp.ndarray,
     target_samples: jnp.ndarray,
     task_relevance: jnp.ndarray,
-    eta_saccade: float = 0.05,
+    eta_saccade: float = 0.0,
     lr: float = 200.0,
     momentum: float = 0.9,
     num_steps: int = 100,

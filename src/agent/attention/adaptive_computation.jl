@@ -106,7 +106,7 @@ function task_relevance!(aux::AdaptiveAux,
         _dpi  = integrate!(aux.nn_idxs, aux.nn_dists, coord, dPi)
         # _ds   = integrate!(aux.nn_idxs, aux.nn_dists, coord, dS)
         # @printf "| δπ: %.2f \t | δS: %.2f |\n" _dpi _ds
-        @printf "| δπ: %.2f \t |\n" _dpi
+        # @printf "| δπ: %.2f \t |\n" _dpi
         tr[i] = _dpi #+ _ds
     end
     return tr
@@ -184,7 +184,7 @@ function attend!(att::MentalModule{AdaptiveComputation},
     # Time smoothing
     aux.avg_load = avg_load / np
     # aux.avg_load = 0.2 * aux.avg_load + 0.8 * avg_load / np
-    @printf "|Δ|: %5.2f, Avg. Load: %5.2f\n" avg_mag_delta aux.avg_load
+    # @printf "|Δ|: %5.2f, Avg. Load: %5.2f\n" avg_mag_delta aux.avg_load
     return nothing
 end
 
