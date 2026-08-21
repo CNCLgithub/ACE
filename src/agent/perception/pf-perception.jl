@@ -37,7 +37,12 @@ function step_module!(perception::MentalModule{V},
                       obs::ChoiceMap,
                       ) where {V<:PFPerception}
     p, q = mparse(perception)
-    args, argdiffs = step_args(p, t)
+    # Read the actual starting state and world model from the current particle trace
+    first_trace = q.chain.particles.traces[1]
+    _, curr_istate, curr_wm = get_args(first_trace)
+    
+    args = (t, curr_istate, curr_wm)
+    argdiffs = (Gen.UnknownChange(), Gen.NoChange(), Gen.NoChange())
     # Preattentive step
     inference_step!(q.chain, p.pf, args, argdiffs, obs)
     return nothing
