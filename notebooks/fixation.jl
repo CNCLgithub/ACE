@@ -101,7 +101,7 @@ function sample_trial()
     return (gt_states, time, istate, wm)
 end
 
-# ╔═╡ fff7b806-f785-45f4-982f-03d64aaa502f
+# ╔═╡ 23563c80-767c-47a9-9b07-81fd215a23c7
 function test_decision()
     (gt_states, time, istate, wm) = sample_trial()
 
@@ -133,27 +133,30 @@ function test_decision()
     snapshots = Vector{Drawing}(undef, time)
 
     for t = 1:time
-        # 1. Update ground-truth graphics sensor with the current agent fixation
+        # 1. Get current agent fixation coordinate
         _, fstate = mparse(fixation)
         current_fix = S2V(fstate.fixation[1], fstate.fixation[2])
-        wm.graphics.fixation_buf[1] = current_fix[1]
-        wm.graphics.fixation_buf[2] = current_fix[2]
-        ACE.sync_scene(wm.graphics, gt_states[t])
 
-        # 2. Sample sensory observation conditioned on current state & fixation
+        # 2. Render ground truth receptive field observation conditioned on current fixation
+        ACE.sync_scene(wm.graphics, gt_states[t], current_fix)
         obs_sample = ACE.field_predict(wm.graphics)
-        obs_t = choicemap((:states => 1 => :observe, obs_sample))
 
-        # 3. Step cognitive modules
+        # 3. Form combined observation + fixation constraint choicemap for step t
+        obs_t = choicemap(
+            (:states => t => :observe, obs_sample),
+            (:states => t => :fixation, current_fix)
+        )
+
+        # 4. Step cognitive modules across time t = 1, 2, ..., time
         stats = @timed begin
-            ACE.step_module!(perception, 1, obs_t)
+            ACE.step_module!(perception, t, obs_t)
             ACE.step_module!(decision_making, t, perception)
             ACE.step_module!(attention, t, perception, decision_making)
             ACE.step_module!(fixation, t, perception, attention)
         end
         avg_runtime += stats.time
 
-        # 4. Render visualizations
+        # 5. Render visualizations
         inferred = paint_state(perception, false)
         inferred = paint_state(decision_making, inferred, false)
         inferred = paint_state(attention, inferred)
@@ -183,7 +186,7 @@ snapshots[time_step]
 # ╠═ae4cb95e-9c2b-11f1-b71e-69c35553de55
 # ╟─a74b2f5c-363b-4022-b575-68a8c9564625
 # ╠═ccc3c256-6daa-43db-b3a9-e3a593c80c2a
-# ╠═fff7b806-f785-45f4-982f-03d64aaa502f
+# ╠═23563c80-767c-47a9-9b07-81fd215a23c7
 # ╠═9ae4b323-376f-4699-ba8f-f33710365ca8
 # ╟─b6303774-b928-46f9-becb-05f3393c966f
 # ╟─24527534-6813-4ed3-9263-d0b381a07912

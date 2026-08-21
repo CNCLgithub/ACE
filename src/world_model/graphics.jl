@@ -55,6 +55,19 @@ function RFGraphics(image_shape::Tuple{Int, Int},
 end
 
 function sync_scene(graphics::RFGraphics, 
+                    scene::WorldState,
+                    fixation::S2V)
+    # Sync object buffer
+    sync_scene(graphics, scene)
+    
+    # Sync fixation buffer
+    graphics.fixation_buf[1] = Float32(fixation[1])
+    graphics.fixation_buf[2] = Float32(fixation[2])
+    
+    return graphics
+end
+
+function sync_scene(graphics::RFGraphics, 
                     scene::WorldState)
     n = length(scene.objects)
     n === length(graphics.scene_buf) || error("Scene and buffer length missmatch")

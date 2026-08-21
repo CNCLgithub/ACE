@@ -13,8 +13,10 @@ end
     # predict motion
     forces ~ Gen.Map(force_prior)(prior_params(wm.motion, prev))
     next::WorldState = resolve_motion(wm.motion, prev, forces)
+    # Naive prior over fixations
+    fixation ~ normal_s2v(S2V(0.0, 0.0), 300.0)
     # predict receptive field statistics
-    graphics = sync_scene(wm.graphics, next)
+    graphics = sync_scene(wm.graphics, next, fixation)
     # observe receptive fields
     observe ~ receptive_fields(graphics)
     return next

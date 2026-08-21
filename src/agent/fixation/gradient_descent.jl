@@ -52,10 +52,6 @@ function step_module!(f::MentalModule{F}, t::Int64, v::MentalModule{V}, a::Menta
     # 1. Gradient descent on gaze coordinates
     fprot, fstate = mparse(f)
     opt_fix!(fstate, fprot, amap, weights)
-    # 2. Propagate new fixation to perception module
-    new_fix = SVector{2, Float32}(fstate.fixation[1], fstate.fixation[2])
-    reinit_perception!(v, new_fix)
-
     return nothing
 end
 
