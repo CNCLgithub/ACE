@@ -18,8 +18,8 @@ state_type(::Type{GDFixation}) = GDFixationState
 
 # State definition
 mutable struct GDFixationState <: MentalState{GDFixation}
-    fixation::MVector{2, Float64}
-    fixation_vel::MVector{2, Float64}
+    fixation::MVector{2, Float32}
+    fixation_vel::MVector{2, Float32}
 
     # Python buffer protocol wrappers (Zero-copy views into Julia host arrays)
     fixation_buf_py::Py
@@ -56,15 +56,37 @@ function step_module!(f::MentalModule{F}, t::Int64, v::MentalModule{V}, a::Menta
 end
 
 function opt_fix!(fstate::GDFixationState, fprot::GDFixation,
-                  amap::Array{S2V}, weights::Array{Float64})
+                  amap::AbstractVector{<:AbstractVector{<:Real}},
+                  weights::AbstractVector{<:Real})
+    n = length(amap)
+    n == 0 && return nothing
+
+    # Flatten coordinates & weights to Float32 host buffers
+    flat_targets = Vector{Float32}(undef, 2 * n)
+    flat_weights = Vector{Float32}(undef, n)
+    @inbounds for i in 1:n
+        flat_targets[2*i - 1] = Float32(amap[i][1])
+        flat_targets[2*i]     = Float32(amap[i][2])
+        flat_weights[i]       = Float32(weights[i])
+    end
+
     outputs_py = jax_script[].optimize_fixation(
         fstate.fixation_buf_py,
         fstate.fixvel_buf_py,
-        Py(amap),
-        Py(weights)
+        Py(flat_targets),
+        Py(flat_weights),
+        Int32(n)
     )
-    fstate.fixvel_buf_py = outputs_py - fstate.fixation_buf_py
-    fstate.fixation_buf_py = outputs_py
-    @show outputs_py
+
+    # Convert output back to Julia array and update fixation buffers
+    np = pyimport("numpy")
+    new_fix = pyconvert(Vector{Float32}, np.array(outputs_py))
+
+    fstate.fixation_vel[1] = new_fix[1] - fstate.fixation[1]
+    fstate.fixation_vel[2] = new_fix[2] - fstate.fixation[2]
+
+    fstate.fixation[1] = new_fix[1]
+    fstate.fixation[2] = new_fix[2]
+
     return nothing
 end

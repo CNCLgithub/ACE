@@ -80,25 +80,27 @@ def normal_logpdf(xs : jnp.ndarray, mus : jnp.ndarray, vs : jnp.ndarray):
     return jnp.sum(log_probs)
 
 def optimize_fixation(
-        fixation,
-        fixation_vel,
-        target_samples,
-        task_relevance
+    fixation,
+    fixation_vel,
+    target_samples_buf,
+    task_relevance_buf,
+    n_points: int,
 ):
     fixation_np = np.frombuffer(fixation, dtype=np.float32)
     fixvel_np = np.frombuffer(fixation_vel, dtype=np.float32)
-    n = len(target_samples)
-    target_np = np.frombuffer(target_samples, dtype=np.float32).reshape((n, 2))
-    weights_np = np.frombuffer(task_relevance)
+    targets_np = np.frombuffer(target_samples_buf, dtype=np.float32).reshape((n_points, 2))
+    weights_np = np.frombuffer(task_relevance_buf, dtype=np.float32)
 
-    fixation = jax.device_put(fixation_np)
-    fixation_vel = jax.device_put(fixvel_np)
+    fixation_dev = jax.device_put(fixation_np)
+    fixvel_dev = jax.device_put(fixvel_np)
+    targets_dev = jax.device_put(targets_np)
+    weights_dev = jax.device_put(weights_np)
 
     new_fixation = resolve_next_fixation_gd(
-        fixation,
-        fixation_vel,
-        target_samples,
-        task_relevance
+        fixation_dev,
+        fixvel_dev,
+        targets_dev,
+        weights_dev,
     )
     return new_fixation
 
@@ -257,6 +259,7 @@ def predict_rf_stats(fixation, rfs, objects):
 ################################################################################
 
 @jit
+@jit
 def foveal_coverage_loss(
     fixation: jnp.ndarray,
     target_samples: jnp.ndarray,
@@ -264,27 +267,25 @@ def foveal_coverage_loss(
     sigma_fovea: float = 50.0,
     gamma: float = 0.9,
 ) -> jnp.ndarray:
-    """Return negative RF-particle-weighted foveal coverage.
+    """Calculates weighted foveal coverage over target samples."""
+    if target_samples.ndim == 2:
+        # target_samples: (N_targets, 2)
+        distances = jnp.linalg.norm(target_samples - fixation, axis=-1)
+        coverage = jnp.exp(-0.5 * (distances / sigma_fovea) ** 2)
+        total_coverage = jnp.sum(coverage * weights)
+        return -total_coverage
 
-    ``target_samples`` has shape ``(N_obj, K_particles, H+1, 2)``.  A
-    Gaussian foveal profile converts distance into coverage, and coverage is
-    averaged over particle samples before object relevance and temporal
-    discounting are applied.
-    """
-    if target_samples.ndim != 4 or target_samples.shape[-1] != 2:
-        raise ValueError("target_samples must have shape (K_particles, 2)")
-    if fixation.shape != (2,):
-        raise ValueError("fixation must have shape (2,)")
-    if weights.ndim != 1 or weights.shape[0] != target_samples.shape[0]:
-        raise ValueError("weights must have one entry per particle")
-    # (N_obj, K_particles, H+1): distance from this candidate gaze location.
-    distances = jnp.linalg.norm(target_samples - fixation, axis=-1)
-    # Convert distance into [0, 1] coverage, then compute E[coverage].
-    coverage = jnp.exp(-0.5 * (distances / sigma_fovea) ** 2)
-    expected_coverage = jnp.mean(coverage, axis=1)  # (N_obj, H+1)
-    temporal_discount = gamma ** jnp.arange(target_samples.shape[2])  # (H+1,)
-    total_coverage = jnp.sum(expected_coverage * weights[:, None] * temporal_discount)
-    return -total_coverage
+    elif target_samples.ndim == 4:
+        # target_samples: (N_obj, K_particles, H+1, 2)
+        distances = jnp.linalg.norm(target_samples - fixation, axis=-1)
+        coverage = jnp.exp(-0.5 * (distances / sigma_fovea) ** 2)
+        expected_coverage = jnp.mean(coverage, axis=1)  # (N_obj, H+1)
+        temporal_discount = gamma ** jnp.arange(target_samples.shape[2])
+        total_coverage = jnp.sum(expected_coverage * weights[:, None] * temporal_discount)
+        return -total_coverage
+
+    else:
+        raise ValueError(f"Unexpected target_samples shape: {target_samples.shape}")
 
 
 @jit
