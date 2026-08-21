@@ -60,8 +60,8 @@ function opt_fix!(fstate::GDFixationState, fprot::GDFixation,
     outputs_py = jax_script[].optimize_fixation(
         fstate.fixation_buf_py,
         fstate.fixvel_buf_py,
-        amap,
-        weights
+        Py(amap),
+        Py(weights)
     )
     fstate.fixvel_buf_py = outputs_py - fstate.fixation_buf_py
     fstate.fixation_buf_py = outputs_py
