@@ -2,7 +2,7 @@ export FixationProtocol, GDFixation
 
 @kwdef struct GDFixation <: FixationProtocol
     eta_saccade::Float64 = 0.05
-    lr::Float64 = 200.0
+    lr::Float64 = 1.0
     momentum::Float64 = 0.9
     num_steps::Int64 = 100
     bounds::Tuple{S2V, S2V} = (S2V(-400.0, -400.0), S2V(400.0, 400.0))
@@ -75,7 +75,15 @@ function opt_fix!(fstate::GDFixationState, fprot::GDFixation,
         fstate.fixvel_buf_py,
         Py(flat_targets),
         Py(flat_weights),
-        Int32(n)
+        Int32(n),
+        eta_saccade=fprot.eta_saccade,
+        lr=fprot.lr,
+        momentum=fprot.momentum,
+        num_steps=fprot.num_steps,
+        sigma_fovea=fprot.sigma_fovea,
+        gamma=fprot.gamma,
+        lambda_l2=fprot.lambda_l2,
+        lambda_smooth=fprot.lambda_smooth
     )
 
     # Convert output back to Julia array and update fixation buffers

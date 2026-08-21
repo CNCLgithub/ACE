@@ -85,3 +85,8 @@ end
 #     x = clamp(x, 0.001, 0.999)
 #     log(x/(1-x))
 # end
+
+function norm(d::S2V)
+    x, y  = d
+    sqrt(x^2 + y^2)
+end

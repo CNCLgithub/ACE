@@ -71,7 +71,7 @@ def sync_and_logpdf(observed_rgb, fixation, fields, objects, n : int) -> float :
 
     # xs = np.frombuffer(observed_rgb, dtype=np.float32)
     means, variances = predict_rf_stats(fixation, fields, objects)
-    variances = jnp.maximum(variances, 1e-6)
+    variances = jnp.maximum(variances, 0.01)
     return normal_logpdf(observed_rgb, means, variances).item()
 
 @jit
@@ -85,6 +85,15 @@ def optimize_fixation(
     target_samples_buf,
     task_relevance_buf,
     n_points: int,
+    eta_saccade: float = 0.025,
+    lr: float = 10.0,
+    momentum: float = 0.9,
+    num_steps: int = 100,
+    bounds: jnp.ndarray = jnp.array([[-200.0, -200.0], [200.0, 200.0]]),
+    sigma_fovea: float = 50.0,
+    gamma: float = 0.9,
+    lambda_l2: float = 0.0001,
+    lambda_smooth: float = 0.0005,
 ):
     fixation_np = np.frombuffer(fixation, dtype=np.float32)
     fixvel_np = np.frombuffer(fixation_vel, dtype=np.float32)
@@ -101,6 +110,15 @@ def optimize_fixation(
         fixvel_dev,
         targets_dev,
         weights_dev,
+        eta_saccade = eta_saccade,
+        lr=lr,
+        momentum=momentum,
+        num_steps=num_steps,
+        bounds=bounds,
+        sigma_fovea=sigma_fovea,
+        gamma=gamma,
+        lambda_l2=lambda_l2,
+        lambda_smooth=lambda_smooth
     )
     return np.array(new_fixation)
 

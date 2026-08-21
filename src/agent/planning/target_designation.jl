@@ -81,12 +81,12 @@ function seed_state!(state::TDState, protocol::TargetDesignation,
     vp, vs = mparse(perception)
     traces = Vector{Trace}(undef, vp.pf.particles)
 
-    # traces = sample_unweighted_traces(vs.chain.particles, vp.pf.particles)
-    vtraces = vs.chain.particles.traces
-    @inbounds for i=1:vp.pf.particles
+    traces = sample_unweighted_traces(vs.chain.particles, vp.pf.particles)
+    # vtraces = vs.chain.particles.traces
+    # @inbounds for i=1:vp.pf.particles
         # st = get_last_state(vtraces[i])
-        traces[i] = seed_model(protocol, vtraces[i])
-    end
+    #     traces[i] = seed_model(protocol, traces[i])
+    # end
     state.chain = traces
     return nothing
 end
@@ -128,15 +128,39 @@ end
 
 function approximate_td_marginal(p::TargetDesignation, traces::Vector)
     # REVIEW: weighted mean?
-    exp_pi = mean(expected_reward_td_rfs, traces)
+    # exp_pi = mean(expected_reward_td_rfs, traces)
+    exp_pi = mean(tr -> expected_reward_td_conf(p, tr), traces)
 end
 
-function expected_reward_td_rfs(trace::PiTrace, temp::Float64 = 10.0)
+function expected_reward_td_conf(p::TargetDesignation, trace::STrace)
+    state = get_last_state(trace)
+    expected_reward_td_conf(p, state)
+end
+
+function expected_reward_td_conf(p::TargetDesignation, state::WorldState)
+    n = length(state.objects)
+    n > p.ntarget || error("Not enough objects for target designation")
+
+    reward = 0.0
+    @inbounds for i = 1:p.ntarget
+        target = state.objects[i]
+        min_d = Inf
+        for j = (p.ntarget+1):n
+            distractor = state.objects[j]
+            d = norm(target.pos - distractor.pos)
+            min_d = min(min_d, d)
+        end
+        reward += min_d
+    end
+
+    return log(reward)
+end
+
+function expected_reward_td_rfs(trace::PiTrace, temp::Float64 = 1.0)
+    (_, ntargets) = get_args(trace)
     rfs = extract_rfs_subtrace(trace)
     pt = rfs.ptensor
     nx,ne,np = size(pt)
-    # Assumes last element is ensemble
-    ntargets = ne - 1
 
     # normalize the log scores of each partition
     nls = log.(softmax(rfs.pscores, temp))
@@ -179,22 +203,32 @@ end
 
 function proxy_delta_pi(m::MentalModule{TargetDesignation}, tr::STrace, i::Int)
     protocol, dm_state = mparse(m)
-    st = get_last_state(tr)
-    pi_trace = dm_state.chain[i]
-    update_pi_trace(pi_trace, st)
+    pi = expected_reward_td_conf(protocol, dm_state.chain[i])
+    new_pi = expected_reward_td_conf(protocol, tr)
+    delta_pi = log(abs(new_pi - pi))
+    tr, delta_pi
 end
 
 function update_pi_trace(tr::PiTrace, new_state::WorldState)
-    (orig_state, ntargets) = get_args(tr)
+    # (orig_state, ntargets) = get_args(tr)
 
-    args = (new_state, ntargets)
-    argdiffs = (UnknownChange(), NoChange())
-    new_tr, w, _... = update(tr, args, argdiffs, choicemap())
-    delta_pi = abs(w)
+    # args = (orig_state, ntargets)
+    # argdiffs = (NoChange(), NoChange())
+    # cm = select_cm(new_state)
+    # new_tr, w, _... = update(tr, args, argdiffs, cm)
+    # delta_pi = abs(w)
+    # new_tr, _... = generate(get_gen_fn(tr), args)
+    # pi = expected_reward_td_rfs(tr, 10.0)
+    # new_pi = expected_reward_td_rfs(new_tr, 10.0)
+    # delta_pi = log(abs(new_pi - pi))
+    # @show pi
+    # @show new_pi
+    # @show delta_pi
+    # error()
     return new_tr, delta_pi
 end
 
-function update_planning!(m::MentalModule{TargetDesignation}, new_trace::PiTrace, i::Int)
+function update_planning!(m::MentalModule{TargetDesignation}, new_trace, i::Int)
     _, state = mparse(m)
     state.chain[i] = new_trace
     return nothing

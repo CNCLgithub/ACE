@@ -26,6 +26,7 @@ begin
 	using PlutoUI
 	using Random
 	using Printf
+	# using StatProfilerHTML
 	
 	using Revise
 	using GenRFS
@@ -74,17 +75,24 @@ Creates a trial with 3 objects randomly moving about.
 """
 function sample_trial()
     istate = WorldState([
-        Disc(S2V(   0,   0), S2V(1, 0), 10.0),
+        # first 4 are targets
+        Disc(S2V( 150,   20), S2V(1, 0), 10.0),
         Disc(S2V( 100,   0), S2V(-1, 0), 10.0),
-        Disc(S2V(   0, 100), S2V(0.5, -1), 10.0),
+        Disc(S2V( -80, 130), S2V(0.5, -1), 10.0),
+        Disc(S2V(   0,   0), S2V(1, 0), 10.0),
+        # Distractors
+        Disc(S2V(-100,   0), S2V(-1, 0), 10.0),
+        Disc(S2V( -30,  50), S2V(0.5, -1), 10.0),
+        Disc(S2V(  45,-100), S2V(1, 0), 10.0),
+        Disc(S2V( 100, -80), S2V(-1, 0), 10.0),
     ])
 
-    motion = BrownianVel()
+    motion = BrownianVel(;jitter=0.1)
     graphics = RFGraphics((400, 400), S2V32(0, 0), istate,
                           overlap_density=1.0,
-                          target_rf_count=128,
-                          fovea_radius_ratio=0.15,
-                          fovea_rf_fraction=0.45)
+                          target_rf_count=256,
+                          fovea_radius_ratio=0.25,
+                          fovea_rf_fraction=0.65)
                          
     wm = WorldModel(motion, graphics)
 
@@ -113,23 +121,32 @@ function test_decision()
     vstate = PFPerceptionState(vis)
     perception = MentalModule(vis, vstate)
 
-    decision_making = MentalModule(TargetDesignation(; ntarget = 1))
+    decision_making = MentalModule(TargetDesignation(; ntarget = 4))
 
     attention = MentalModule(AdaptiveComputation(
-        base_steps = 3,
+        base_steps = 9,
         buffer_size = 100,
         nns = 20,
         itemp = 3.0,
         load = 20,
-        load_m = 5.0,
-        load_x0 = 15.0,
+        load_m = 20.0,
+        load_x0 = 10.0,
         vis_partition = WMPartition{ACE.STrace}(),
         cog_partition = WMPartition{ACE.PiTrace}(),
     ))
 
-    fixation = MentalModule(GDFixation())
+    fixation = MentalModule(GDFixation(; 
+                                       eta_saccade = 0.05,
+                                       lr = 1.0,
+                                         momentum = 0.9,
+                                        num_steps = 10,
+                                        sigma_fovea = 50.0,
+                                        gamma = 0.9,
+                                        lambda_l2 = 0.0001,
+                                        lambda_smooth = 0.0005
+))
 
-    avg_runtime = 0.0
+    avg_runtime = zeros(4)
     snapshots = Vector{Drawing}(undef, time)
 
     for t = 1:time
@@ -148,13 +165,16 @@ function test_decision()
         )
 
         # 4. Step cognitive modules across time t = 1, 2, ..., time
-        stats = @timed begin
-            ACE.step_module!(perception, t, obs_t)
-            ACE.step_module!(decision_making, t, perception)
-            ACE.step_module!(attention, t, perception, decision_making)
-            ACE.step_module!(fixation, t, perception, attention)
-        end
-        avg_runtime += stats.time
+
+        stats = @timed ACE.step_module!(perception, t, obs_t)
+        avg_runtime[1] += stats.time
+        stats = @timed ACE.step_module!(decision_making, t, perception)
+        avg_runtime[2] += stats.time
+        # @profile_html ACE.step_module!(attention, t, perception, decision_making)
+        stats = @timed ACE.step_module!(attention, t, perception, decision_making)
+        avg_runtime[3] += stats.time
+        stats = @timed ACE.step_module!(fixation, t, perception, attention)
+        avg_runtime[4] += stats.time
 
         # 5. Render visualizations
         inferred = paint_state(perception, false)
@@ -169,7 +189,7 @@ function test_decision()
         )
     end
 
-    @printf "Average runtime: %.2fms\n" (avg_runtime / time * 1000)
+    @printf "Average runtime: V %.2fms | D %.2fms \n | A %.2fms | F %.2fms |" ((avg_runtime ./ time .* 1000)...)
     return snapshots
 end;
 

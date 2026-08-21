@@ -19,38 +19,19 @@ function paint_target_selections!(drawing,
 
     # Aggregate target positions and marginal target probabilities across traces
     for tr in state.chain
-        ws = get_args(tr)[1]
-        n_obs = length(ws.objects)
+        ws = get_last_state(tr)
 
         # Compute confidence / expected reward for this trace
-        score_val = expected_reward_td_rfs(tr, temp) # Log marginal target score
+        score_val = expected_reward_td_conf(protocol, tr)
         conf = clamp(exp(score_val), 0.1, 1.0)
 
-        # Extract RFS partition associations
-        rfs = extract_rfs_subtrace(tr)
-        pt = rfs.ptensor # [nx, ne, np]
-        nx, ne, np = size(pt)
-        nls = softmax(rfs.pscores, temp)
-
-        # Compute per-object target marginal: P(object i is target)
-        for i = 1:min(n_obs, nx)
+        for i = 1:protocol.ntarget
             obj = ws.objects[i]
             pos = obj.pos
             point = Point(pos[1], -pos[2])
 
-            # Probability this object is associated with any of the target elements (1:ntargets)
-            p_target = 0.0
-            for p = 1:np
-                for t = 1:min(ntargets, ne - 1)
-                    if pt[i, t, p]
-                        p_target += nls[p]
-                        break
-                    end
-                end
-            end
-
             # Modulate opacity & boldness by per-object target probability & overall trace confidence
-            effective_alpha = clamp(p_target * conf * (1.5 / ntraces), 0.0, 1.0)
+            effective_alpha = clamp(conf * (1.5 / ntraces), 0.0, 1.0)
 
             if effective_alpha > 0.05
                 @layer begin

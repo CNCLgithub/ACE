@@ -8,7 +8,7 @@ export AdaptiveComputation
     vis_partition::TracePartition{V} = WMPartition{V}()
     cog_partition::TracePartition{C} = WMPartition{C}()
     "Minimum number of moves"
-    base_steps::Int64 = 3
+    base_steps::Int64 = 16
     "Size of attention hash map"
     buffer_size::Int64 = 100
     "Distance metric in spatio-temporal maps (x,y,t)"
@@ -164,9 +164,6 @@ function attend!(att::MentalModule{AdaptiveComputation},
                 # delta pi
                 new_pi, dPi = proxy_delta_pi(planning, new_trace, i)
                 update_impact!(aux.dPi, vis_partition, trace, j, dPi)
-                # if j == 2 && dPi > 0.5
-                #     error()
-                # end
                 # Update particle
                 if log(rand()) < alpha
                     trace = new_trace
