@@ -199,6 +199,44 @@ snapshots = test_decision();
 # ╔═╡ 24527534-6813-4ed3-9263-d0b381a07912
 snapshots[time_step]
 
+# ╔═╡ bd19d9fa-4e5b-4490-99a1-2bc008d82813
+"""
+    save_snapshots_as_mp4(snapshots, output_file="fixation_trial.mp4"; 
+                          fps=24, temp_dir=mktempdir())
+
+Exports each frame using Julia's Base.show MIME interface and compiles to MP4 with ffmpeg.
+"""
+function save_snapshots_as_mp4(snapshots, output_file="fixation_trial.mp4";
+                              fps=24, temp_dir=mktempdir())
+    @info "Exporting $(length(snapshots)) frames to $temp_dir..."
+
+    # Check whether PNG or SVG MIME is supported by the snapshot object
+    sample = first(snapshots)
+    use_png = showable(MIME("image/png"), sample)
+    mime_type = use_png ? MIME("image/png") : MIME("image/svg+xml")
+    ext = use_png ? "png" : "svg"
+
+    for (i, d) in enumerate(snapshots)
+        frame_path = joinpath(temp_dir, @sprintf("frame_%04d.%s", i, ext))
+        open(frame_path, "w") do io
+            show(io, mime_type, d)
+        end
+    end
+
+    input_pattern = joinpath(temp_dir, "frame_%04d.$ext")
+
+    @info "Compiling video with ffmpeg -> $output_file"
+    cmd = `ffmpeg -y -framerate $fps -i $input_pattern -c:v libx264 -pix_fmt yuv420p -crf 18 $output_file`
+    run(cmd)
+
+    @info "Animation successfully saved to $output_file"
+    return output_file
+end
+
+
+# ╔═╡ 6ff9d758-9f09-4f7b-8b35-c22085d40b63
+save_snapshots_as_mp4(snapshots)
+
 # ╔═╡ Cell order:
 # ╠═ae4cb95e-9c2b-11f1-b71e-69c35553de55
 # ╟─a74b2f5c-363b-4022-b575-68a8c9564625
@@ -207,3 +245,5 @@ snapshots[time_step]
 # ╠═9ae4b323-376f-4699-ba8f-f33710365ca8
 # ╟─b6303774-b928-46f9-becb-05f3393c966f
 # ╟─24527534-6813-4ed3-9263-d0b381a07912
+# ╠═bd19d9fa-4e5b-4490-99a1-2bc008d82813
+# ╠═6ff9d758-9f09-4f7b-8b35-c22085d40b63
