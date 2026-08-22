@@ -228,18 +228,33 @@ function attend!(att::MentalModule{<:AdaptiveComputation},
     return nothing
 end
 
-function attention_map(m::MentalModule{<:AdaptiveComputation})
-    prot, state = mparse(m)
+function attention_map(a::MentalModule{<:AdaptiveComputation}, v::MentalModule{<:PFPerception})
+    prot, aux = mparse(a)
+    vis_partition = prot.vis_partition
 
-    dPi = state.dPi
-    # REVIEW: any way to prevent new allocations?
-    n = length(dPi.coords)
-    amap = Vector{S2V}(undef, n)
-    weights = Vector{Float64}(undef, n)
-    @inbounds for i = 1:n
-        x, y, _ = dPi.coords[i]
-        amap[i] = S2V(x, y)
-        weights[i] = dPi.samples[i]
+    vp, vs = mparse(v)
+    traces =
+        sample_unweighted_traces(vs.chain.particles, vp.pf.particles)
+    np = length(traces)
+    
+    t, istate, wm = get_args(traces[1])
+    n = length(istate.objects)
+
+    pos = [zeros(S2V) for _ in 1:n]
+    avg_rel = zeros(n)
+
+    w = 1.0 / np
+
+    @inbounds for p = 1:np
+        trace = traces[p]
+        state = get_last_state(trace)
+        for i = 1:n
+            pos[i] += w .* state.objects[i].pos
+        end
+
+        deltas =
+            task_relevance!(aux, aux.dPi, aux.dS, vis_partition, trace)
+        avg_rel .+= w .* deltas
     end
-    (amap, weights)
+    (pos, avg_rel)
 end 

@@ -25,6 +25,7 @@ begin
 	using Luxor
 	using PlutoUI
 	using Random
+	using StatProfilerHTML
 	
 	using Revise
 	using GenRFS
@@ -74,17 +75,21 @@ function sample_trial()
     ])
 
     motion = BrownianVel()
-    FIXATION_POINT, BASE_RADIUS, GROWTH_RATE, OVERLAP_DENSITY = S2V32(0,0), 25.0, 0.08, 1.25
-    graphics = RFGraphics((400, 400), BASE_RADIUS, GROWTH_RATE, OVERLAP_DENSITY, FIXATION_POINT, istate)
+    graphics = RFGraphics((400, 400), S2V32(0, 0), istate,
+                          overlap_density=1.0,
+                          target_rf_count=256,
+                          fovea_radius_ratio=0.25,
+                          fovea_rf_fraction=0.65)
     wm = WorldModel(motion, graphics)
 
-    time = 30
+    time = 200
     tr, _ = generate(s_model, (time, istate, wm))
     choices = get_choices(tr)
 
     obs = Vector{ChoiceMap}(undef, time)
     for t = 1:time
-        obs[t] = choicemap((:states => t => :observe, choices[:states => t => :observe]))
+        obs[t] = choicemap((:states => t => :observe, choices[:states => t => :observe]),
+                               (:states => t => :fixation, S2V(0, 0)))
     end
 
     states = get_retval(tr)
@@ -104,19 +109,19 @@ function test_perception()
     perception = MentalModule(vis, vstate)
     
 	snapshots = Vector{Drawing}(undef, time)
-	for t = 1:time
+	 @profilehtml for t = 1:time
         ACE.step_module!(perception, t, obs[t])
-		# Visualizations
-         snapshots[t] = hcat(
-            paint_state(gt_states[t], wm, true), # gt state
-            # Receptive Fields colored by Mean RGB
-            paint_state(wm.graphics, gt_states[t]; mode=:mean, show_objects=false, back_color="black"),
-            # Receptive Fields colored by Variance
-            paint_state(wm.graphics, gt_states[t]; mode=:variance, show_objects=false, back_color="black"),
-            # Inferred states
-            paint_state(perception, true);
-            hpad=10
-         )
+		# # Visualizations
+  #        snapshots[t] = hcat(
+  #           paint_state(gt_states[t], wm, true), # gt state
+  #           # Receptive Fields colored by Mean RGB
+  #           paint_state(wm.graphics, gt_states[t]; mode=:mean, show_objects=false, back_color="black"),
+  #           # Receptive Fields colored by Variance
+  #           paint_state(wm.graphics, gt_states[t]; mode=:variance, show_objects=false, back_color="black"),
+  #           # Inferred states
+  #           paint_state(perception, true);
+  #           hpad=10
+  #        )
     
 	end
     return snapshots

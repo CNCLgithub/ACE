@@ -46,7 +46,7 @@ function step_module!(f::MentalModule{F}, t::Int64, v::MentalModule{V}, a::Menta
                       ) where {F<:GDFixation, V<:PFPerception, A<:AdaptiveComputation}
     # Check if attention map is ready
     isready(a) || return nothing
-    amap, weights = attention_map(a)
+    amap, weights = attention_map(a, v)
     isempty(amap) && return nothing
 
     # 1. Gradient descent on gaze coordinates

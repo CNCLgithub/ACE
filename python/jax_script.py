@@ -29,23 +29,29 @@ def test_jax():
 # Interface
 ################################################################################
 
-def sync_and_sample(fixation, 
-                    fields,
-                    scene_buf, 
-                    n_points: int,
-                    seed: int):
-    """Bridge function called from Julia."""
-    # Zero-copy reinterpret flat C-contiguous buffers from Julia
+def sync_and_sample(fixation, fields, scene_buf, n_points: int, seed: int):
     fixation_np = np.frombuffer(fixation, dtype=np.float32)
     objects_np = np.frombuffer(scene_buf, dtype=np.float32).reshape((n_points, 7))
 
-    # Transfer into JAX device arrays
     fixation = jax.device_put(fixation_np)
     objects = jax.device_put(objects_np)
 
     mean, var = predict_rf_stats(fixation, fields, objects)
     sample = sample_normal(seed, mean, var)
-    return sample # Need to detach to prevent overwriting trace
+    return np.array(sample) # Detach from JAX device to host NumPy array
+
+def sync_and_logpdf(observed_rgb, fixation, fields, objects, n: int) -> float:
+    fixation_np = np.frombuffer(fixation, dtype=np.float32)
+    objects_np = np.frombuffer(objects, dtype=np.float32).reshape((n, 7))
+    # observed_rgb_np = np.asarray(observed_rgb, dtype=np.float32)
+
+    fixation = jax.device_put(fixation_np)
+    objects = jax.device_put(objects_np)
+    # observed_rgb = jax.device_put(observed_rgb_np)
+
+    means, variances = predict_rf_stats(fixation, fields, objects)
+    variances = jnp.maximum(variances, 0.01)
+    return float(normal_logpdf(observed_rgb, means, variances).item())
 
 @jit
 def sample_normal(seed: int, mus: jnp.ndarray, var: jnp.ndarray):
@@ -53,27 +59,6 @@ def sample_normal(seed: int, mus: jnp.ndarray, var: jnp.ndarray):
     sample = (normal(key(seed), mus.shape) + mus) * var
     return sample
     
-
-def sync_and_logpdf(observed_rgb, fixation, fields, objects, n : int) -> float :
-    '''
-    MAIN API
-    Compute the log probability of observed RF colors
-    given a scene.
-    '''
-    # Zero-copy reinterpret flat C-contiguous buffers from Julia
-    fixation_np = np.frombuffer(fixation, dtype=np.float32)
-    objects_np = np.frombuffer(objects, dtype=np.float32).reshape((n, 7))
-
-    # Transfer into JAX device arrays
-    fixation = jax.device_put(fixation_np)
-    objects = jax.device_put(objects_np)
-    observed_rgb = jax.device_put(observed_rgb)
-
-    # xs = np.frombuffer(observed_rgb, dtype=np.float32)
-    means, variances = predict_rf_stats(fixation, fields, objects)
-    variances = jnp.maximum(variances, 0.01)
-    return normal_logpdf(observed_rgb, means, variances).item()
-
 @jit
 def normal_logpdf(xs : jnp.ndarray, mus : jnp.ndarray, vs : jnp.ndarray):
     log_probs = (-0.5 * jnp.log(2.0 * jnp.pi * vs) - 0.5 * ((xs - mus) ** 2) / vs)

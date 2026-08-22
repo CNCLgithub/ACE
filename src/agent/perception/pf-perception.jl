@@ -65,3 +65,4 @@ function paint_state(m::MentalModule{PFPerception}, ret_finish=true)
 	ret_finish && finish()
     return drawing
 end
+

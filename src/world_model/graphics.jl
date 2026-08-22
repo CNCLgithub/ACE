@@ -18,7 +18,8 @@ function scene_to_array(state::WorldState)
     scene_buf = Vector{SVector{7, Float32}}(undef, n)
     @inbounds for i = 1:n
         obj = state.objects[i]
-        scene_buf[i] = [obj.pos..., # position
+        x, y = obj.pos
+        scene_buf[i] = [x, y, # position
                         obj.radius, # radius
                         0,          # shape - circle
                         1, 1, 1]    # rgb
@@ -49,7 +50,7 @@ function RFGraphics(image_shape::Tuple{Int, Int},
 
     # 3. Create zero-copy Python views
     fixation_buf_py = Py(fixation_buf)
-    scene_buf_py = Py(reinterpret(Float32, scene_buf))
+    scene_buf_py = Py(scene_buf)
 
     RFGraphics(fields_py, fixation_buf, scene_buf, fixation_buf_py, scene_buf_py)
 end
@@ -74,7 +75,8 @@ function sync_scene(graphics::RFGraphics,
 
     @inbounds for i = 1:n
         obj = scene.objects[i]
-        graphics.scene_buf[i] = [obj.pos..., # position
+        x, y = obj.pos
+        graphics.scene_buf[i] = [x,y,        # position
                                  obj.radius, # radius
                                  0,          # shape - circle
                                  1, 1, 1]    # rgb
@@ -85,7 +87,6 @@ end
 
 function field_predict(graphics::RFGraphics)
     n_points = length(graphics.scene_buf)
-    # 2. Invoke Python sync and JIT render
     outputs_py = jax_script[].sync_and_sample(
         graphics.fixation_buf_py,
         graphics.fields_py,
@@ -93,19 +94,11 @@ function field_predict(graphics::RFGraphics)
         n_points,
         rand(Int32)
     )
-    return outputs_py
 end
 
-
-# HINT: see https://www.gen.dev/docs/stable/how_to/custom_distributions/#Defining-New-Distributions-From-Scratch
-
-# `Ref{Py}` is a pointer to some python object
-# In this case (hopefully) a jax vector of float
 struct ReceptiveFields <: Distribution{Py} end
 
 const receptive_fields = ReceptiveFields()
-
-# TODO: Implement the following methods using the interface to python
 
 function Gen.random(::ReceptiveFields, graphics::RFGraphics)
     field_predict(graphics)

@@ -136,7 +136,7 @@ function test_decision()
     ))
 
     fixation = MentalModule(GDFixation(; 
-                                       eta_saccade = 0.05,
+                                       eta_saccade = 0.001,
                                        lr = 1.0,
                                          momentum = 0.9,
                                         num_steps = 10,
