@@ -141,19 +141,18 @@ function expected_reward_td_conf(p::TargetDesignation, state::WorldState)
     n = length(state.objects)
     n > p.ntarget || error("Not enough objects for target designation")
 
-    reward = 0.0
+    min_d = Inf
     @inbounds for i = 1:p.ntarget
         target = state.objects[i]
-        min_d = Inf
         for j = (p.ntarget+1):n
             distractor = state.objects[j]
             d = norm(target.pos - distractor.pos)
             min_d = min(min_d, d)
         end
-        reward += min_d
     end
 
-    return log(reward)
+    # reward = exp(-total_d)
+    log_reward = min_d
 end
 
 function expected_reward_td_rfs(trace::PiTrace, temp::Float64 = 1.0)
@@ -205,7 +204,8 @@ function proxy_delta_pi(m::MentalModule{TargetDesignation}, tr::STrace, i::Int)
     protocol, dm_state = mparse(m)
     pi = expected_reward_td_conf(protocol, dm_state.chain[i])
     new_pi = expected_reward_td_conf(protocol, tr)
-    delta_pi = log(abs(new_pi - pi))
+    # delta_pi = abs(new_pi - pi)
+    delta_pi = logabsdiffexp(new_pi, pi)
     tr, delta_pi
 end
 

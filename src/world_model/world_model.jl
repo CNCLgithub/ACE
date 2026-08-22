@@ -22,7 +22,7 @@ struct WorldState
 end
 
 include("motion.jl")
-include("graphics.jl")
+include("graphics/graphics.jl")
 include("gen.jl")
 include("trace.jl")
 include("visuals.jl")

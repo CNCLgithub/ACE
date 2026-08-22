@@ -15,11 +15,11 @@ function resolve_motion(model::BrownianVel,
                         prev::WorldState)
     n = length(prev.objects)
     new_objects = Vector{Disc}(undef, n)
-    for i = 1:n
+    @inbounds for i = 1:n
         obj = prev.objects[i]
         new_pos, new_vel =
-            resolve_oob(model.dimensions, obj.pos, vel, obj.radius)
-        new_objects = Disc(new_pos, new_vel, obj.radius)
+            resolve_oob(model.dimensions, obj.pos, obj.vel, obj.radius)
+        new_objects[i] = Disc(new_pos, new_vel, obj.radius)
     end
     WorldState(new_objects)
 end

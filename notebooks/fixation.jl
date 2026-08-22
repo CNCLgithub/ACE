@@ -88,21 +88,18 @@ function sample_trial()
     ])
 
     motion = BrownianVel(;jitter=0.1)
-    graphics = RFGraphics((400, 400), S2V32(0, 0), istate,
-                          overlap_density=1.0,
+    graphics = RFGraphics((400, 400), S2V32(0, 0), istate;
                           target_rf_count=256,
-                          fovea_radius_ratio=0.25,
-                          fovea_rf_fraction=0.65)
-                         
+                          fovea_radius_ratio=0.075,
+                          fovea_rf_fraction=0.25)
     wm = WorldModel(motion, graphics)
 
-    time = 30
+    time = 120
     # Simulate true physical object trajectory forward in time
     gt_states = Vector{WorldState}(undef, time)
     curr_state = istate
     for t in 1:time
-        forces = [S2V(randn()*0.1, randn()*0.1) for _ in 1:length(curr_state.objects)]
-        curr_state = ACE.resolve_motion(wm.motion, curr_state, forces)
+        curr_state = ACE.resolve_motion(wm.motion, curr_state)
         gt_states[t] = curr_state
     end
 
@@ -125,22 +122,22 @@ function test_decision()
 
     attention = MentalModule(AdaptiveComputation(
         base_steps = 9,
-        buffer_size = 100,
+        buffer_size = 500,
         nns = 20,
         itemp = 3.0,
         load = 20,
-        load_m = 20.0,
-        load_x0 = 10.0,
-        vis_partition = WMPartition{ACE.STrace}(),
-        cog_partition = WMPartition{ACE.PiTrace}(),
+        load_m = 10.0,
+        load_x0 = -50.0,
+        vis_partition=WMPartition{ACE.STrace}(),
+        cog_partition=WMPartition{ACE.PiTrace}(),
     ))
 
     fixation = MentalModule(GDFixation(; 
                                        eta_saccade = 0.001,
                                        lr = 1.0,
                                          momentum = 0.9,
-                                        num_steps = 10,
-                                        sigma_fovea = 50.0,
+                                        num_steps = 100,
+                                        sigma_fovea = 5.0,
                                         gamma = 0.9,
                                         lambda_l2 = 0.0001,
                                         lambda_smooth = 0.0005

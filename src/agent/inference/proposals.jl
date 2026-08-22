@@ -5,7 +5,7 @@
 
 function object_ancestral_proposal(trace::STrace,
                                    idx::Int,
-                                   back::Int = 3)
+                                   back::Int = 2)
     t, _... = get_args(trace)
     t_range = max(1, t-back):t
     selection = select(

@@ -67,43 +67,36 @@ cm-editor .cm-scroller,
 
 
 # ╔═╡ ccc3c256-6daa-43db-b3a9-e3a593c80c2a
-"""
-    sample_trial()
-
-Creates a trial with 3 objects randomly moving about.
-"""
 function sample_trial()
     istate = WorldState([
-        Disc(S2V(   0,   0), S2V(1, 0), 10.0),
-        Disc(S2V( 100,   0), S2V(-1, 0), 10.0),
-        Disc(S2V(   0, 100), S2V(0.5, -1), 10.0),
+        Disc(S2V( -50,   10), S2V(0.5, 0), 10.0),
+        Disc(S2V( 100,  -10), S2V(-0.5, 0), 10.0),
+        #Disc(S2V(   0, 100), S2V(0.5, -1), 10.0),
     ])
 
-    motion = BrownianVel()
-    graphics = RFGraphics((400, 400), S2V32(0, 0), istate,
-                          overlap_density=1.0,
-                          target_rf_count=128,
-                          fovea_radius_ratio=0.15,
-                          fovea_rf_fraction=0.45)
-                         
+    motion = BrownianVel(; jitter=0.1)
+    graphics = RFGraphics((400, 400), S2V32(0, 0), istate;
+                          target_rf_count=256,
+                          fovea_radius_ratio=0.075,
+                          fovea_rf_fraction=0.25)
     wm = WorldModel(motion, graphics)
 
-    time = 30
-    tr, _ = generate(s_model, (time, istate, wm))
-    choices = get_choices(tr)
-
-    obs = Vector{ChoiceMap}(undef, time)
-    for t = 1:time
-        obs[t] = choicemap((:states => t => :observe, choices[:states => t => :observe]))
+    time = 240
+    # Simulate true physical object trajectory forward in time
+    gt_states = Vector{WorldState}(undef, time)
+    curr_state = istate
+    for t in 1:time
+        curr_state = ACE.resolve_motion(wm.motion, curr_state)
+        gt_states[t] = curr_state
     end
 
-    states = get_retval(tr)
-    return (states, time, istate, wm, obs)
-end
+    return (gt_states, time, istate, wm)
+
+end;
 
 # ╔═╡ fff7b806-f785-45f4-982f-03d64aaa502f
 function test_decision()
-    (gt_states, time, istate, wm, obs) = sample_trial()
+    (gt_states, time, istate, wm) = sample_trial()
 
     vis = PFPerception(
         PFProtocol(; particles=10),
@@ -115,15 +108,14 @@ function test_decision()
 
     decision_making = MentalModule(TargetDesignation(;ntarget = 1))
 
-
     attention = MentalModule(AdaptiveComputation(
-        base_steps = 3,
+        base_steps = 6,
         buffer_size = 100,
         nns = 20,
         itemp = 3.0,
         load = 20,
-        load_m = 5.0,
-        load_x0 = 15.0,
+        load_m = 10.0,
+        load_x0 = -70.0,
         vis_partition=WMPartition{ACE.STrace}(),
         cog_partition=WMPartition{ACE.PiTrace}(),
     ))
@@ -131,13 +123,23 @@ function test_decision()
     avg_runtime = 0.0
 	snapshots = Vector{Drawing}(undef, time)
 	for t = 1:time
+
+        # Render ground truth receptive field observation conditioned on current fixation
+        ACE.sync_scene(wm.graphics, gt_states[t], S2V(0, 0))
+        obs_sample = ACE.field_predict(wm.graphics)
+
+        # 3. Form combined observation + fixation constraint choicemap for step t
+        obs_t = choicemap(
+            (:states => t => :observe, obs_sample),
+            (:states => t => :fixation,  S2V(0, 0))
+        )
+
         stats = @timed begin
-            ACE.step_module!(perception, t, obs[t])
+            ACE.step_module!(perception, t, obs_t)
             ACE.step_module!(decision_making, t, perception)
             ACE.step_module!(attention, t, perception, decision_making)
         end
         avg_runtime += stats.time
-        @show decision_expectation(decision_making)
         # Visualizations
         inferred = paint_state(perception, false)
         inferred = paint_state(decision_making, inferred, false)
@@ -172,5 +174,5 @@ snapshots[time_step]
 # ╠═ccc3c256-6daa-43db-b3a9-e3a593c80c2a
 # ╠═fff7b806-f785-45f4-982f-03d64aaa502f
 # ╠═9ae4b323-376f-4699-ba8f-f33710365ca8
-# ╟─b6303774-b928-46f9-becb-05f3393c966f
+# ╠═b6303774-b928-46f9-becb-05f3393c966f
 # ╟─24527534-6813-4ed3-9263-d0b381a07912

@@ -10,6 +10,7 @@ using Distances
 using Statistics
 using PythonCall
 using StaticArrays
+using LinearAlgebra
 using DataStructures
 using NearestNeighbors
 using DocStringExtensions

@@ -90,3 +90,17 @@ function norm(d::S2V)
     x, y  = d
     sqrt(x^2 + y^2)
 end
+
+# adapted from: https://github.com/yp-mit/spectre/blob/master/lossless-sc/my_logdiffexp.m
+function logabsdiffexp(a,b)
+# % Self written function to compute the log difference of the exponentials of a, b.
+# % This function avoids overflow in computing the exponentials.
+# % Input: 
+# % a, b: two values
+# % Output:
+# % log_x: log of the difference of the exponentials of a, b
+    if b > a
+        (a, b) = (b, a)
+    end
+    a + log(1-exp(b-a))
+end
