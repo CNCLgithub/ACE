@@ -33,6 +33,11 @@ function step_module!(f::MentalModule{F}, t::Int64, v::MentalModule{V}, a::Menta
     return nothing
 end
 
+function get_fixation(f::MentalModule{<:GDFixation})
+    _, s = mparse(f)
+    S2V(s.fixation)
+end
+
 
 """
     foveal_loss_and_grad(fixation, targets, weights, sigma_fovea)
