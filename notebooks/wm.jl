@@ -25,6 +25,7 @@ begin
 	using Luxor
 	using PlutoUI
 	using Random
+	using StatProfilerHTML
 	
 	using Revise
 	using GenRFS
@@ -74,19 +75,22 @@ function test_wm()
     ])
 
     motion = BrownianVel()
-    graphics = RFGraphics((400, 400), S2V32(0, 0), istate,
+    graphics = RFGraphics((400, 400), S2V32(0, 0), istate;
                           overlap_density=1.0,
-                          target_rf_count=512,
-                          fovea_radius_ratio=0.25,
-                          fovea_rf_fraction=0.65)
+                          target_rf_count=256,
+                          fovea_radius_ratio=0.10,
+                          fovea_rf_fraction=0.5)
     wm = WorldModel(motion, graphics)
     cm = choicemap((:states => 1 => :fixation, S2V(0, 0)))
     time = 1
 
 
+    @profilehtml for _ = 1:100000
+        generate(s_model, (time, istate, wm), cm)
+    end
+
 
     tr, _ = generate(s_model, (time, istate, wm), cm)
-    generate(s_model, (time, istate, wm), cm)
 
     choices = get_choices(tr)
 

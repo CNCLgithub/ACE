@@ -25,7 +25,7 @@ begin
 	using Luxor
 	using PlutoUI
 	using Random
-	using StatProfilerHTML
+	# using StatProfilerHTML
 	
 	using Revise
 	using GenRFS
@@ -69,36 +69,34 @@ cm-editor .cm-scroller,
 # ╔═╡ ccc3c256-6daa-43db-b3a9-e3a593c80c2a
 function sample_trial()
     istate = WorldState([
-        Disc(S2V(-10, 10), S2V(1, 0), 10.0),
-        Disc(S2V(10, 10), S2V(-1, 0), 10.0),
-        Disc(S2V(0, 10), S2V(0.5, -1), 10.0),
+        Disc(S2V(   0,   0), S2V(0, 1.0), 10.0),
+        Disc(S2V( 100,   0), S2V(-1.0, 0), 10.0),
+        #Disc(S2V(   0, 100), S2V(0.5, -1), 10.0),
     ])
 
-    motion = BrownianVel()
-    graphics = RFGraphics((400, 400), S2V32(0, 0), istate,
-                          overlap_density=1.0,
-                          target_rf_count=256,
-                          fovea_radius_ratio=0.25,
-                          fovea_rf_fraction=0.65)
+    motion = BrownianVel(; jitter=0.1)
+    graphics = RFGraphics((400, 400), S2V32(0, 0), istate;
+                          target_rf_count=128,
+                          fovea_radius_ratio=0.05,
+                          fovea_rf_fraction=0.5)
     wm = WorldModel(motion, graphics)
 
-    time = 200
-    tr, _ = generate(s_model, (time, istate, wm))
-    choices = get_choices(tr)
-
-    obs = Vector{ChoiceMap}(undef, time)
-    for t = 1:time
-        obs[t] = choicemap((:states => t => :observe, choices[:states => t => :observe]),
-                               (:states => t => :fixation, S2V(0, 0)))
+    time = 60
+    # Simulate true physical object trajectory forward in time
+    gt_states = Vector{WorldState}(undef, time)
+    curr_state = istate
+    for t in 1:time
+        curr_state = ACE.resolve_motion(wm.motion, curr_state)
+        gt_states[t] = curr_state
     end
 
-    states = get_retval(tr)
-    return (states, time, istate, wm, obs)
+    return (gt_states, time, istate, wm)
+
 end;
 
 # ╔═╡ fff7b806-f785-45f4-982f-03d64aaa502f
 function test_perception()
-    (gt_states, time, istate, wm, obs) = sample_trial()
+    (gt_states, time, istate, wm) = sample_trial()
 
     vis = PFPerception(
         PFProtocol(; particles=10),
@@ -109,19 +107,32 @@ function test_perception()
     perception = MentalModule(vis, vstate)
     
 	snapshots = Vector{Drawing}(undef, time)
-	 @profilehtml for t = 1:time
-        ACE.step_module!(perception, t, obs[t])
-		# # Visualizations
-  #        snapshots[t] = hcat(
-  #           paint_state(gt_states[t], wm, true), # gt state
-  #           # Receptive Fields colored by Mean RGB
-  #           paint_state(wm.graphics, gt_states[t]; mode=:mean, show_objects=false, back_color="black"),
-  #           # Receptive Fields colored by Variance
-  #           paint_state(wm.graphics, gt_states[t]; mode=:variance, show_objects=false, back_color="black"),
-  #           # Inferred states
-  #           paint_state(perception, true);
-  #           hpad=10
-  #        )
+	  for t = 1:time
+
+        # Render ground truth receptive field observation conditioned on current fixation
+        ACE.sync_scene(wm.graphics, gt_states[t], S2V(0, 0))
+        obs_sample = ACE.field_predict(wm.graphics)
+
+        # 3. Form combined observation + fixation constraint choicemap for step t
+        obs_t = choicemap(
+            (:states => t => :observe, obs_sample),
+            (:states => t => :fixation,  S2V(0, 0))
+        )
+
+        # 4. Step cognitive modules across time t = 1, 2, ..., time
+
+        ACE.step_module!(perception, t, obs_t)
+		# Visualizations
+         snapshots[t] = hcat(
+            paint_state(gt_states[t], wm, true), # gt state
+            # Receptive Fields colored by Mean RGB
+            paint_state(wm.graphics, gt_states[t]; mode=:mean, show_objects=false, back_color="black"),
+            # Receptive Fields colored by Variance
+            paint_state(wm.graphics, gt_states[t]; mode=:variance, show_objects=false, back_color="black"),
+            # Inferred states
+            paint_state(perception, true);
+            hpad=10
+         )
     
 	end
     return snapshots

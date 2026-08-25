@@ -254,7 +254,10 @@ function attention_map(a::MentalModule{<:AdaptiveComputation}, v::MentalModule{<
 
         deltas =
             task_relevance!(aux, aux.dPi, aux.dS, vis_partition, trace)
-        avg_rel .+= w .* deltas
+        avg_rel .+= w .* softmax(deltas)
     end
+
+    avg_rel = softmax(avg_rel)
+
     (pos, avg_rel)
 end 

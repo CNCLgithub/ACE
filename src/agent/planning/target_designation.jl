@@ -23,7 +23,7 @@ mutable struct TDState <: MentalState{TargetDesignation}
 end
 
 function TDState(p::TargetDesignation)
-    TDState(Trace[], 0.5, 1.0)
+    TDState(Trace[], 0.0, 1.0)
 end
 
 function MentalModule(p::TargetDesignation)
@@ -79,8 +79,6 @@ function seed_state!(state::TDState, protocol::TargetDesignation,
                      perception::MentalModule{PFPerception})
 
     vp, vs = mparse(perception)
-    traces = Vector{Trace}(undef, vp.pf.particles)
-
     traces = sample_unweighted_traces(vs.chain.particles, vp.pf.particles)
     # vtraces = vs.chain.particles.traces
     # @inbounds for i=1:vp.pf.particles
@@ -141,19 +139,18 @@ function expected_reward_td_conf(p::TargetDesignation, state::WorldState)
     n = length(state.objects)
     n > p.ntarget || error("Not enough objects for target designation")
 
-    reward = 0.0
+    min_d = Inf
     @inbounds for i = 1:p.ntarget
         target = state.objects[i]
-        min_d = Inf
         for j = (p.ntarget+1):n
             distractor = state.objects[j]
             d = norm(target.pos - distractor.pos)
             min_d = min(min_d, d)
         end
-        reward += min_d
     end
 
-    return log(reward)
+    # reward = exp(-total_d)
+    log_reward = min_d
 end
 
 function expected_reward_td_rfs(trace::PiTrace, temp::Float64 = 1.0)
@@ -205,7 +202,8 @@ function proxy_delta_pi(m::MentalModule{TargetDesignation}, tr::STrace, i::Int)
     protocol, dm_state = mparse(m)
     pi = expected_reward_td_conf(protocol, dm_state.chain[i])
     new_pi = expected_reward_td_conf(protocol, tr)
-    delta_pi = log(abs(new_pi - pi))
+    # delta_pi = abs(new_pi - pi)
+    delta_pi = logabsdiffexp(new_pi, pi)
     tr, delta_pi
 end
 
@@ -232,4 +230,46 @@ function update_planning!(m::MentalModule{TargetDesignation}, new_trace, i::Int)
     _, state = mparse(m)
     state.chain[i] = new_trace
     return nothing
+end
+
+function tracking_accuracy(pi::MentalModule{TargetDesignation},
+                           v::MentalModule{PFPerception},
+                           gt::Vector{WorldState})
+    pp, _  = mparse(pi)
+    vp, vs = mparse(v)
+    traces = sample_unweighted_traces(vs.chain.particles, vp.pf.particles)
+
+    np = length(traces)
+    avg = 0.0
+    @inbounds for i = 1:np
+        avg += tracking_accuracy_sample(pp, traces[i])
+    end
+    avg / np
+end
+
+function tracking_accuracy_sample(p::TargetDesignation, trace::STrace, gt::WorldState)
+    state = get_last_state(trace)
+    n = length(state.objects)
+    n === length(gt.objects) || error("trace and gt length missmatch")
+    n > p.ntarget || error("Not enough objects for target designation")
+
+    score = 0.0
+    @inbounds for i = 1:p.ntarget
+        gt_pos = gt.objects[i].pos
+        closest_d = 0.0
+        closest_idx = 0
+        for j = 1:p.ntarget
+            candidate = state.objects[i]
+            d = norm(candidate.pos - gt_pos)
+            if closest_d > d
+                closest_d = d
+                closest_idx = j
+            end
+        end
+
+        if closest_idx <= p.ntarget
+            score += 1.0
+        end
+    end
+    score / p.ntarget
 end
