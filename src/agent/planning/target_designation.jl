@@ -1,6 +1,7 @@
 export TargetDesignation,
     RGCollisionState,
-    decision_expectation
+    decision_expectation,
+    tracking_accuracy
 
 """
     ($TYPEDEF)
@@ -234,7 +235,7 @@ end
 
 function tracking_accuracy(pi::MentalModule{TargetDesignation},
                            v::MentalModule{PFPerception},
-                           gt::Vector{WorldState})
+                           gt::WorldState)
     pp, _  = mparse(pi)
     vp, vs = mparse(v)
     traces = sample_unweighted_traces(vs.chain.particles, vp.pf.particles)
@@ -242,7 +243,7 @@ function tracking_accuracy(pi::MentalModule{TargetDesignation},
     np = length(traces)
     avg = 0.0
     @inbounds for i = 1:np
-        avg += tracking_accuracy_sample(pp, traces[i])
+        avg += tracking_accuracy_sample(pp, traces[i], gt)
     end
     avg / np
 end
