@@ -35,6 +35,7 @@ function sync_scene(graphics::RFGraphics, scene::WorldState)
     graphics.state = scene
     return graphics
 end
+
 function sync_scene(graphics::RFGraphics, scene::WorldState, fixation::S2V)
     graphics.state = scene
     graphics.fixation[1] = Float32(fixation[1])
@@ -50,7 +51,8 @@ function field_predict(graphics::RFGraphics)
     n_rf = size(graphics.means_buf, 1)
     sample = Matrix{Float32}(undef, n_rf, 3)
     @inbounds for c in 1:3, i in 1:n_rf
-        sample[i, c] = graphics.means_buf[i, c] + sqrt(graphics.vars_buf[i, c]) * randn(Float32)
+        y = logread(graphics.means_buf[i, c]) + SIGMA_Y * randn(Float32)
+        sample[i, c] = exp(y) - BETA_LOG
     end
     return sample
 end
@@ -71,7 +73,7 @@ function Gen.logpdf(::ReceptiveFields, x::AbstractMatrix{Float32}, graphics::RFG
     predict_rf_stats!(graphics.means_buf, graphics.vars_buf,
                       graphics.mu_rgb, graphics.var_rgb,
                       SVector(graphics.fixation), graphics.geom, graphics.state.objects)
-    return rf_logpdf(x, graphics.means_buf, graphics.vars_buf)
+    return rf_logpdf(x, graphics.means_buf)
 end
 
 Gen.has_argument_grads(::ReceptiveFields) = (false,)

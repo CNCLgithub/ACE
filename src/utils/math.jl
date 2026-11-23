@@ -104,3 +104,56 @@ function logabsdiffexp(a,b)
     end
     a + log(1-exp(b-a))
 end
+
+const LANCZOS = (0.99999999999980993, 676.5203681218851, -1259.1392167224028,
+                 771.32342877765313, -176.61502916214059, 12.507343278686905,
+                 -0.13857109526572012, 9.9843695780195716e-6,
+                 1.5056327351493116e-7)
+
+function _lgamma(x::Real)
+    if x < 0.5
+        return log(π / sin(π * x)) - _lgamma(1.0 - x)
+    end
+    x -= 1.0
+    a = LANCZOS[1]
+    t = x + 7.5
+    for i in 2:9
+        a += LANCZOS[i] / (x + i - 1.0)
+    end
+    return 0.5 * log(2π) + (x + 0.5) * log(t) - t + log(a)
+end
+
+function beta_logpdf(x::Real, phi::Real, kappa::Real)
+    a = phi * kappa
+    b = (1.0 - phi) * kappa
+    x <= 0.0 && return a > 1.0 ? -Inf : a == 1.0 ? -Inf : Inf
+    x >= 1.0 && return b > 1.0 ? -Inf : b == 1.0 ? -Inf : Inf
+    lpdf =  (a - 1.0) * log(x) + (b - 1.0) * log1p(-x)
+           - (_lgamma(a) + _lgamma(b) - _lgamma(a + b))
+    if isinf(lpdf) || isnan(lpdf)
+        @show (x, phi, kappa, lpdf)
+    end
+    return lpdf
+end
+
+
+function randgamma(a::Real)
+    if a < 1
+        return randgamma(a + 1) * rand()^(1 / a)
+    end
+    d = a - 1 / 3
+    c = 1 / sqrt(9d)
+    while true
+        x = randn()
+        v = (1 + c * x)^3
+        v <= 0 && continue
+        u = rand()
+        if log(u) < 0.5x^2 + d - d * v + d * log(v)
+            return d * v
+        end
+    end
+end
+
+randbeta(a::Real, b::Real) = let x = randgamma(a)
+    Float32(x / (x + randgamma(b)))
+end

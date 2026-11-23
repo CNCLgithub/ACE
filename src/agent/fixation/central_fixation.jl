@@ -2,9 +2,9 @@ export CentralFixation
 
 struct CentralFixation <: FixationProtocol end
 
-struct CFState <: MentalState{GDFixation} end
+struct CFState <: MentalState{CentralFixation} end
 
-MentalModule(p::GDFixation) = MentalModule(p, CFState())
+MentalModule(p::CentralFixation) = MentalModule(p, CFState())
 
 function step_module!(f::MentalModule{F}, t::Int64, v::MentalModule{V}, a::MentalModule{A}
                       ) where {F<:CentralFixation, V<:PFPerception, A<:AdaptiveComputation}
