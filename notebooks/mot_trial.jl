@@ -236,8 +236,7 @@ begin
     motion = BrownianVel(; dimensions = S2V(Float64(config.arena), Float64(config.arena)),
                          jitter = 2.5)
     
-    graphics = RFGraphics((config.arena, config.arena), S2V32(0, 0), gt_states[1];
-                         fovea_radius_ratio = 0.07)
+    graphics = RFGraphics((config.arena, config.arena), S2V32(0, 0), gt_states[1];)
     
     wm = WorldModel(motion, graphics)
     
