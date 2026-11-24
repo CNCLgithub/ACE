@@ -16,9 +16,27 @@ end
 mutable struct GDFixationState <: MentalState{GDFixation}
     fixation::MVector{2, Float32}
     fixation_vel::MVector{2, Float32}
+    "Task-relevance support of the last fixation step (object positions)"
+    targets::Vector{S2V}
+    "Task-relevance mass at each target (sums to 1)"
+    weights::Vector{Float64}
+    "Fixation the optimiser would commit to next"
+    proposal::MVector{2, Float32}
+    "Loss at the current fixation"
+    loss::Float64
+    "Proposed gain in loss (init_loss - final_loss)"
+    gain::Float64
 end
 
-GDFixationState() = GDFixationState(MVector{2, Float32}(0.0f0, 0.0f0), MVector{2, Float32}(0.0f0, 0.0f0))
+function GDFixationState()
+    return GDFixationState(MVector{2, Float32}(0.0f0, 0.0f0),
+                           MVector{2, Float32}(0.0f0, 0.0f0),
+                           S2V[],
+                           Float64[],
+                           MVector{2, Float32}(0.0f0, 0.0f0),
+                           0.0,
+                           0.0)
+end
 MentalModule(p::GDFixation) = MentalModule(p, GDFixationState())
 
 function step_module!(f::MentalModule{F}, t::Int64, v::MentalModule{V}, a::MentalModule{A}
@@ -138,11 +156,21 @@ function opt_fix!(fstate::GDFixationState,
         f_curr = clamp.(f_curr - momentum_buf, min_b, max_b)
     end
 
+    # Loss at the state that would actually be committed. `final_loss` from the
+    # loop lags one update behind `f_curr`.
+    final_loss = foveal_loss_and_grad!(cov_grad, f_curr, amap, weights, sigma_f)
+
     # Evaluate saccade gain threshold
     gain = init_loss - final_loss
-    # @show init_loss
-    # @show final_loss
-    # @show gain
+
+    # Record the candidate and its score before the gate, so that a proposed
+    # saccade which is rejected can be inspected.
+    fstate.proposal[1] = f_curr[1]
+    fstate.proposal[2] = f_curr[2]
+    fstate.loss = Float64(init_loss)
+    fstate.gain = Float64(gain)
+    fstate.targets = collect(amap)
+    fstate.weights = collect(weights)
 
     if gain > Float32(fprot.eta_saccade)
         # Commit saccade

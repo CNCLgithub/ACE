@@ -272,7 +272,7 @@ begin
     
     attention = MentalModule(AdaptiveComputation(
         base_steps = 9,
-        buffer_size = 500,
+        buffer_size = 1000,
         nns = 20,
         itemp = 3.0,
         load = 20,
@@ -301,6 +301,12 @@ md"""
 The loop is unchanged: fixate, render the receptive-field observation at the
 current fixation, and step perception → target designation → attention →
 fixation. `gt_states[t]` here is a recorded frame rather than a sampled one.
+
+The snapshot carries four panes: ground truth, the receptive-field observation,
+the inferred world with attention markers, and the task-relevance field that the
+fixation controller optimises. The same quantities are also logged per tick in
+`fix_log` (see below) so that a failure to saccade can be read off a trace as
+well as a frame.
 """
 
 # ╔═╡ d81c4a55-7c83-4e2b-9a55-2f5f4c2b6e10
@@ -308,6 +314,8 @@ function run_trial(gt_states, wm, perception, decision_making, attention, fixati
     time = length(gt_states)
     avg_runtime = zeros(4)
     snapshots = Vector{Drawing}(undef, time)
+    # Columns: R(fix), R(prop), gain, |prop - fix|, avg_load
+    fix_log = zeros(time, 5)
 
     for t in 1:time
         _, fstate = mparse(fixation)
@@ -330,14 +338,31 @@ function run_trial(gt_states, wm, perception, decision_making, attention, fixati
         stats = @timed ACE.step_module!(fixation, t, perception, attention)
         avg_runtime[4] += stats.time
 
+        fprot, fstate = mparse(fixation)
+        _, astate = mparse(attention)
+        if !isempty(fstate.targets)
+            sigma = fprot.sigma_fovea
+            fix_x = Float64(fstate.fixation[1])
+            fix_y = Float64(fstate.fixation[2])
+            pro_x = Float64(fstate.proposal[1])
+            pro_y = Float64(fstate.proposal[2])
+            fix_log[t, 1] = ACE.relevance_density(fstate.targets, fstate.weights, sigma, fix_x, fix_y)
+            fix_log[t, 2] = ACE.relevance_density(fstate.targets, fstate.weights, sigma, pro_x, pro_y)
+            fix_log[t, 3] = fstate.gain
+            fix_log[t, 4] = hypot(pro_x - fix_x, pro_y - fix_y)
+            fix_log[t, 5] = astate.avg_load
+        end
+
         inferred = paint_state(perception, false)
         inferred = paint_state(decision_making, inferred, false)
         inferred = paint_state(attention, inferred)
+        relevance = paint_state(fixation, true)
 
         snapshots[t] = hcat(
             paint_state(gt_states[t], wm, true),
             paint_state(wm.graphics, gt_states[t]; mode = :mean,
                         show_objects = false, back_color = "black"),
+            relevance,
             inferred;
             hpad = 10
         )
@@ -345,11 +370,15 @@ function run_trial(gt_states, wm, perception, decision_making, attention, fixati
 
     per_step = avg_runtime ./ time .* 1000
     @printf "Average runtime: V %.2fms | D %.2fms | A %.2fms | F %.2fms\n" per_step...
-    return snapshots
+    return (snapshots = snapshots, fix_log = fix_log)
 end
 
 # ╔═╡ e0b3d1c9-5f2a-4a4b-8c1d-3e7a9b6c5f42
-snapshots = run_trial(gt_states, wm, perception, decision_making, attention, fixation);
+begin
+    result = run_trial(gt_states, wm, perception, decision_making, attention, fixation);
+    snapshots = result.snapshots;
+    fix_log = result.fix_log;
+end;
 
 # ╔═╡ f2c9b7a3-1d4e-4f5a-8b6c-9d0e1f2a3b4c
 @bind time_step Slider(1:length(snapshots), default = 1,
@@ -394,16 +423,36 @@ end
 # ╔═╡ 4c8e2a17-6d3b-4f90-a2c5-8b7e1f0d9c36
 save_snapshots_as_mp4(snapshots, "track_playback_$(config.traj).mp4")
 
+# ╔═╡ b4d8e6a2-7c31-4f9e-8a2d-1c5e0f3b9a62
+md"""
+### Fixation trace
+
+`R(fix)` and `R(prop)` are the task-relevance density at the current fixation and
+at the fixation the optimiser proposes; their difference is the gain that
+`eta_saccade` gates. A flat `R(fix)` with a rising `R(prop)` means the optimiser
+wants to move but the gate is refusing. Two consecutive small `R(prop)` values
+mean the field itself has no competing mode, which is a relevance or perception
+problem rather than a controller problem.
+"""
+
+# ╔═╡ a2f6c9d4-3e8b-4a17-b5c0-6d9f2e7b1c84
+begin
+    println("   t    t[s]   R(fix)   R(prop)     gain    |df|    load")
+    for t in 1:size(fix_log, 1)
+        @printf "%4d  %6.2f  %8.5f  %8.5f  %8.5f  %6.1f  %5.2f\n" t (t - 1) / step_hz fix_log[t, 1:5]...
+    end
+end
+
 # ╔═╡ Cell order:
-# ╠═ae4cb95e-9c2b-11f1-b71e-69c35553de00
+# ╟─ae4cb95e-9c2b-11f1-b71e-69c35553de00
 # ╟─8b1f4e60-2a9d-4c73-b5e8-1f7a3c9d0e42
 # ╟─2a00b05f-4baf-4af5-91fc-00b99a5ac370
 # ╟─135afeb1-d2cf-457c-81eb-35affdeedb8a
 # ╠═5e85800e-df74-4260-8699-fa1988e7e0b1
 # ╟─cf3a05ac-1306-46ef-a4d8-c570b2a8b83b
 # ╟─3c7d9a10-8b2e-4c5d-9f1a-6d0b8e2c4a73
-# ╠═9e4a2b71-5c6f-4d38-a0b9-7f1c3e5d8b26
-# ╠═5d0f462b-2555-434e-959a-b93b76d08ad4
+# ╟─9e4a2b71-5c6f-4d38-a0b9-7f1c3e5d8b26
+# ╟─5d0f462b-2555-434e-959a-b93b76d08ad4
 # ╟─a39ed78b-8d8d-45d7-ac01-c8fb7a468926
 # ╠═a3f563da-6435-4148-b76f-add056cd4074
 # ╟─4e023fc2-bd04-47db-aafc-af79187bfdd5
@@ -416,3 +465,5 @@ save_snapshots_as_mp4(snapshots, "track_playback_$(config.traj).mp4")
 # ╠═a7f3c2d1-4b5e-4f6a-9c8d-2e1f0a3b5c7d
 # ╟─b3e8f1a2-6c7d-4e5f-8a9b-1c2d3e4f5a6b
 # ╠═4c8e2a17-6d3b-4f90-a2c5-8b7e1f0d9c36
+# ╠═b4d8e6a2-7c31-4f9e-8a2d-1c5e0f3b9a62
+# ╠═a2f6c9d4-3e8b-4a17-b5c0-6d9f2e7b1c84

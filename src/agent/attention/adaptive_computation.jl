@@ -104,10 +104,10 @@ function task_relevance!(aux::AdaptiveAux,
     for i = 1:n
         coord = get_coord(partition, trace, i)
         _dpi  = integrate!(aux.nn_idxs, aux.nn_dists, coord, dPi)
-        # _ds   = integrate!(aux.nn_idxs, aux.nn_dists, coord, dS)
+        _ds   = integrate!(aux.nn_idxs, aux.nn_dists, coord, dS)
         # @printf "| δπ: %.2f \t | δS: %.2f |\n" _dpi _ds
         # @printf "| δπ: %.2f \t |\n" _dpi
-        tr[i] = _dpi #+ _ds
+        tr[i] = _dpi + _ds
     end
     return tr
 end
